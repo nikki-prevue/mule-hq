@@ -296,21 +296,51 @@ export default function Home() {
               </select>
               <span style={{fontSize:12,color:'#7A6E64',marginLeft:'auto',alignSelf:'center'}}>{filteredOffices.length} offices</span>
             </div>
+            {/* PRIORITY LEGEND */}
+            <div style={{display:'flex',gap:10,marginBottom:16,flexWrap:'wrap'}}>
+              <div style={{display:'flex',alignItems:'center',gap:5,fontSize:11,color:'#7A6E64'}}><div style={{width:10,height:10,borderRadius:'50%',background:'#C17B5A'}}></div>Hot</div>
+              <div style={{display:'flex',alignItems:'center',gap:5,fontSize:11,color:'#7A6E64'}}><div style={{width:10,height:10,borderRadius:'50%',background:'#F7C87A'}}></div>Top Referrer</div>
+              <div style={{display:'flex',alignItems:'center',gap:5,fontSize:11,color:'#7A6E64'}}><div style={{width:10,height:10,borderRadius:'50%',background:'#E85C5C'}}></div>Overdue</div>
+              <div style={{display:'flex',alignItems:'center',gap:5,fontSize:11,color:'#7A6E64'}}><div style={{width:10,height:10,borderRadius:'50%',background:'#5C7F59'}}></div>Action Needed</div>
+              <div style={{display:'flex',alignItems:'center',gap:5,fontSize:11,color:'#7A6E64'}}><div style={{width:10,height:10,borderRadius:'50%',background:'#C4B49E'}}></div>Do Not Target</div>
+            </div>
             <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(300px,1fr))',gap:12}}>
-              {filteredOffices.map(o=>(
-                <div key={o.id} onClick={()=>setSelectedOffice(o)} style={{background:'#FDFCFA',border:'1px solid #DDD5C4',borderRadius:12,padding:16,cursor:'pointer',transition:'all 0.15s',borderLeft:`3px solid ${o.tier==='hot'?HOT:o.tier==='warm'?GOLD:COLD}`}} onMouseEnter={e=>e.currentTarget.style.borderColor=GOLD} onMouseLeave={e=>e.currentTarget.style.borderColor='#DDD5C4'}>
-                  <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',marginBottom:8}}>
-                    <div style={{fontWeight:600,fontSize:13,color:'#1A1410',flex:1,paddingRight:8}}>{o.name}</div>
-                    <span style={s.tierBadge(o.tier)}>{o.tier}</span>
+              {[...filteredOffices].sort((a,b)=>{
+                const dnt=(o)=>o.status==='Do Not Target';
+                const od=(o)=>!o.lastVisit||(Date.now()-new Date(o.lastVisit))>14*864e5;
+                if(dnt(a)&&!dnt(b))return 1;
+                if(!dnt(a)&&dnt(b))return -1;
+                if(a.tier==='hot'&&b.tier!=='hot')return -1;
+                if(a.tier!=='hot'&&b.tier==='hot')return 1;
+                if(od(a)&&!od(b))return -1;
+                if(!od(a)&&od(b))return 1;
+                return 0;
+              }).map(o=>{
+                const od=!o.lastVisit||(Date.now()-new Date(o.lastVisit))>14*864e5;
+                const dnt=o.status==='Do Not Target';
+                const isNew=o.status==='New - not visited';
+                const borderColor=dnt?'#C4B49E':o.tier==='hot'?HOT:od?'#E85C5C':o.tier==='warm'?GOLD:COLD;
+                return(
+                  <div key={o.id} onClick={()=>!dnt&&setSelectedOffice(o)} style={{background:dnt?'#F9F7F4':'#FDFCFA',border:'1px solid #DDD5C4',borderRadius:12,padding:16,cursor:dnt?'default':'pointer',transition:'all 0.15s',borderLeft:`4px solid ${borderColor}`,opacity:dnt?0.6:1}} onMouseEnter={e=>{if(!dnt)e.currentTarget.style.boxShadow='0 2px 12px rgba(160,120,64,0.12)';}} onMouseLeave={e=>e.currentTarget.style.boxShadow='none'}>
+                    <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',marginBottom:6}}>
+                      <div style={{fontWeight:600,fontSize:13,color:dnt?'#9A8E82':'#1A1410',flex:1,paddingRight:8,lineHeight:1.3}}>{o.name}</div>
+                      <div style={{display:'flex',flexDirection:'column',gap:3,alignItems:'flex-end'}}>
+                        <span style={s.tierBadge(o.tier)}>{o.tier}</span>
+                        {o.topReferrer&&<span style={{fontSize:8,fontWeight:700,padding:'1px 6px',borderRadius:20,background:'rgba(247,200,122,0.25)',color:'#8B6914',textTransform:'uppercase',letterSpacing:'0.06em'}}>Top Referrer</span>}
+                        {isNew&&<span style={{fontSize:8,fontWeight:700,padding:'1px 6px',borderRadius:20,background:'rgba(92,127,89,0.15)',color:SAGE,textTransform:'uppercase',letterSpacing:'0.06em'}}>New</span>}
+                        {dnt&&<span style={{fontSize:8,fontWeight:700,padding:'1px 6px',borderRadius:20,background:'rgba(193,123,90,0.1)',color:HOT,textTransform:'uppercase',letterSpacing:'0.06em'}}>Do Not Target</span>}
+                      </div>
+                    </div>
+                    {o.doctor&&<div style={{fontSize:11,color:'#7A6E64',marginBottom:4}}>{o.doctor}</div>}
+                    <div style={{fontSize:10,color:'#9A8E82',marginBottom:8}}>{o.city}</div>
+                    <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',flexWrap:'wrap',gap:4}}>
+                      <span style={{fontSize:11,color:od?'#E85C5C':SAGE,fontWeight:od?700:400,background:od?'rgba(232,92,92,0.08)':'transparent',padding:od?'2px 6px':'0',borderRadius:od?4:0}}>{od&&!dnt?'OVERDUE — ':''}{daysAgo(o.lastVisit)}</span>
+                      {o.referralVolume>0&&<span style={{fontSize:10,color:GOLD,fontWeight:600}}>{o.referralVolume}/yr</span>}
+                    </div>
+                    {o.nextAction&&!dnt&&<div style={{fontSize:11,color:'#5C7F59',marginTop:6,borderTop:'1px solid #EDE6D6',paddingTop:6}}>{o.nextAction.substring(0,60)}{o.nextAction.length>60?'...':''}</div>}
                   </div>
-                  {o.doctor&&<div style={{fontSize:11,color:'#7A6E64',marginBottom:4}}>{o.doctor}</div>}
-                  <div style={{fontSize:11,color:'#9A8E82',marginBottom:8}}>{o.city}</div>
-                  <div style={{display:'flex',justifyContent:'space-between',alignItems:'center'}}>
-                    <span style={{fontSize:11,color:isOverdue(o.lastVisit)?HOT:SAGE,fontWeight:isOverdue(o.lastVisit)?600:400}}>{daysAgo(o.lastVisit)}</span>
-                    {o.nextAction&&<span style={{fontSize:11,color:'#7A6E64',maxWidth:140,textOverflow:'ellipsis',overflow:'hidden',whiteSpace:'nowrap'}}>{o.nextAction}</span>}
-                  </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           </div>
         )}
