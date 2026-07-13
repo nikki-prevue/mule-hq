@@ -6,7 +6,7 @@ const TASKS = [
 {"id":"t5","text":"Confirm Prestige Family lunch delivered — Market Street","priority":"today","done":true},
 {"id":"t6","text":"Collect + schedule Northlake Dentistry lunch order","priority":"today","done":false},
 {"id":"t7","text":"Collect + schedule Active Dental lunch order","priority":"today","done":false},
-{"id":"t8","text":"Collect + schedule Lifetime Dental lunch order","priority":"today","done":false},
+{"id":"t8","text":"Lifetime Dental — Chuy lunch confirmed Tue 7/14 at 12:45pm. Confirm delivery + meet Dr. Dafney in person","priority":"urgent","done":false},
 {"id":"t9","text":"Titensor Dental — revisit after office move (late July / early Aug)","priority":"week","done":false},
 {"id":"t10","text":"Tenney Dental — happy hour follow-up (target: fall)","priority":"week","done":false},
 {"id":"t11","text":"Confirm CFOP/insurance follow-up at Brad Duren Dentistry","priority":"week","done":false},
