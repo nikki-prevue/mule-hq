@@ -360,7 +360,7 @@ export default function Home() {
               });
             })()}
           </div>
-        )}}
+        )}
 
         {/* ═══ FIELD LOG ═══ */}
         {page==='fieldlog'&&(
