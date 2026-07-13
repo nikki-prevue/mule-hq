@@ -1,16 +1,10 @@
-import { getVisits, addVisit } from '../../lib/notion';
-
-export default async function handler(req, res) {
-  try {
-    if (req.method === 'GET') {
-      const data = await getVisits();
-      return res.status(200).json(data);
-    }
-    if (req.method === 'POST') {
-      const data = await addVisit(req.body);
-      return res.status(200).json(data);
-    }
-  } catch (e) {
-    return res.status(500).json({ error: e.message });
+const VISITS = [];
+export default function handler(req, res) {
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  if (req.method === 'GET') return res.status(200).json(VISITS);
+  if (req.method === 'POST') {
+    const v = { ...req.body, id: Date.now().toString(), date: new Date().toISOString().split('T')[0] };
+    VISITS.push(v);
+    return res.status(200).json(v);
   }
 }
