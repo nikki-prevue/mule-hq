@@ -51,10 +51,16 @@ export default function Home() {
   const [tierFilter,setTierFilter]=useState('');
   const [cityFilter,setCityFilter]=useState('');
   const [logOffice,setLogOffice]=useState('');
+  const [logContact,setLogContact]=useState('');
   const [logGift,setLogGift]=useState('');
   const [logNotes,setLogNotes]=useState('');
   const [logNextAction,setLogNextAction]=useState('');
   const [logTier,setLogTier]=useState('warm');
+  const [logLunch,setLogLunch]=useState('no');
+  const [logLunchRestaurant,setLogLunchRestaurant]=useState('');
+  const [logLunchDate,setLogLunchDate]=useState('');
+  const [logLunchNotes,setLogLunchNotes]=useState('');
+  const [logAddTask,setLogAddTask]=useState(false);
   const [eodDraft,setEodDraft]=useState('');
   const [showAddOffice,setShowAddOffice]=useState(false);
   const [showAddSupply,setShowAddSupply]=useState(false);
@@ -397,43 +403,136 @@ export default function Home() {
         {/* ═══ FIELD LOG ═══ */}
         {page==='fieldlog'&&(
           <div>
-            <div style={s.sectionTitle}>Field Log <span style={{fontSize:13,color:'#7A6E64',fontFamily:"'Jost',sans-serif",fontWeight:300}}>Log visits in real time</span></div>
+            <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:20}}>
+              <div style={s.sectionTitle}>Field Log <span style={{fontSize:13,color:'#7A6E64',fontFamily:"'Jost',sans-serif",fontWeight:300}}>One entry. Updates everywhere.</span></div>
+              <span style={s.cardAction} onClick={()=>{setPage('eod');generateEOD();}}>Push to EOD</span>
+            </div>
             <div style={s.grid2eq}>
-              <div style={s.card}>
-                <div style={s.cardHeader}><div style={s.cardTitle}>Log a Visit</div></div>
-                <label style={s.label}>Office</label>
-                <select style={s.select} value={logOffice} onChange={e=>setLogOffice(e.target.value)}>
-                  <option value="">Select office...</option>
-                  {offices.map(o=><option key={o.id} value={o.name}>{o.name}</option>)}
-                </select>
-                <label style={s.label}>Gift / Drop</label>
-                <input style={s.input} value={logGift} onChange={e=>setLogGift(e.target.value)} placeholder="Snack box, referral pads, dirty soda..."/>
-                <label style={s.label}>Field Notes</label>
-                <textarea style={s.textarea} value={logNotes} onChange={e=>setLogNotes(e.target.value)} placeholder="Who you met, conversation, interest level..."/>
-                <label style={s.label}>Next Action</label>
-                <input style={s.input} value={logNextAction} onChange={e=>setLogNextAction(e.target.value)} placeholder="Follow up in 2 weeks, schedule L&L..."/>
-                <label style={s.label}>Update Tier</label>
-                <select style={s.select} value={logTier} onChange={e=>setLogTier(e.target.value)}>
-                  <option value="warm">Warm</option>
-                  <option value="hot">Hot</option>
-                  <option value="cold">Cold</option>
-                </select>
-                <button style={{...s.btnPrimary,width:'100%'}} onClick={logVisit}>Save Visit</button>
-              </div>
+              {/* SMART LOG FORM */}
               <div style={s.card}>
                 <div style={s.cardHeader}>
-                  <div style={s.cardTitle}>Today's Notes</div>
-                  <span style={s.cardAction} onClick={()=>{setPage('eod');generateEOD();}}>Push to EOD</span>
+                  <div style={s.cardTitle}>Log a Visit</div>
+                  {logOffice&&<div style={{fontSize:11,color:SAGE,fontWeight:500}}>Updates office profile automatically</div>}
                 </div>
-                {todayVisits.length===0&&<div style={{color:'#7A6E64',fontSize:13,textAlign:'center',padding:'32px 0'}}>No visits logged yet today.</div>}
-                {todayVisits.map(v=>(
-                  <div key={v.id} style={{background:'#FAFAF7',border:'1px solid #EDE6D6',borderRadius:10,padding:14,marginBottom:10,cursor:'pointer'}} onClick={()=>setSelectedVisit(v)}>
-                    <div style={{display:'flex',justifyContent:'space-between',marginBottom:4}}>
-                      <div style={{fontWeight:600,fontSize:13}}>{v.office}</div>
-                      <div style={{fontSize:10,color:'#7A6E64',fontFamily:'monospace'}}>{new Date(v.date).toLocaleDateString()}</div>
+
+                {/* OFFICE SELECTOR */}
+                <label style={s.label}>Office</label>
+                <select style={s.select} value={logOffice} onChange={e=>{
+                  setLogOffice(e.target.value);
+                  const found=offices.find(o=>o.name===e.target.value);
+                  if(found){
+                    setLogContact(found.contact||'');
+                    setLogTier(found.tier||'warm');
+                    setLogNextAction(found.nextAction||'');
+                  }
+                }}>
+                  <option value="">Select office...</option>
+                  {offices.filter(o=>o.status!=='Do Not Target').map(o=><option key={o.id} value={o.name}>{o.name} — {o.city}</option>)}
+                </select>
+
+                {/* AUTO-FILLED FROM OFFICE PROFILE */}
+                {logOffice&&(()=>{
+                  const found=offices.find(o=>o.name===logOffice);
+                  return found?(
+                    <div style={{background:'rgba(92,127,89,0.08)',border:'1px solid rgba(92,127,89,0.2)',borderRadius:8,padding:'10px 14px',marginBottom:12,fontSize:12,color:'#5C7F59'}}>
+                      Last visit: <strong>{found.lastVisit?`${Math.floor((Date.now()-new Date(found.lastVisit))/864e5)}d ago`:'Never'}</strong>
+                      {found.doctor&&<> · {found.doctor}</>}
+                      {found.gift&&<> · Last drop: {found.gift}</>}
                     </div>
-                    {v.notes&&<div style={{fontSize:12,color:'#7A6E64',lineHeight:1.5}}>{v.notes.substring(0,100)}{v.notes.length>100?'...':''}</div>}
-                    {v.gift&&<div style={{fontSize:11,color:GOLD,marginTop:4}}>Drop: {v.gift}</div>}
+                  ):null;
+                })()}
+
+                {/* WHO YOU MET */}
+                <label style={s.label}>Who You Spoke With</label>
+                <input style={s.input} value={logContact} onChange={e=>setLogContact(e.target.value)} placeholder="Front desk name, doctor, OM..."/>
+
+                {/* GIFT DROP */}
+                <label style={s.label}>Gift / Drop</label>
+                <input style={s.input} value={logGift} onChange={e=>setLogGift(e.target.value)} placeholder="Dirty soda kit, snack box, Tiff's Treats..."/>
+
+                {/* FIELD NOTES */}
+                <label style={s.label}>Field Notes</label>
+                <textarea style={s.textarea} value={logNotes} onChange={e=>setLogNotes(e.target.value)} placeholder="Key conversation, interest level, what they said, intel gathered..."/>
+
+                {/* NEXT ACTION */}
+                <label style={s.label}>Next Action</label>
+                <input style={s.input} value={logNextAction} onChange={e=>setLogNextAction(e.target.value)} placeholder="Follow up in 2 weeks, schedule L&L, drop ref pads..."/>
+
+                {/* TIER + LUNCH ROW */}
+                <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:12}}>
+                  <div>
+                    <label style={s.label}>Update Tier</label>
+                    <select style={s.select} value={logTier} onChange={e=>setLogTier(e.target.value)}>
+                      <option value="hot">Hot</option>
+                      <option value="warm">Warm</option>
+                      <option value="cold">Cold</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label style={s.label}>Lunch Discussed?</label>
+                    <select style={s.select} value={logLunch} onChange={e=>setLogLunch(e.target.value)}>
+                      <option value="no">No</option>
+                      <option value="pending">Yes — QR / Pending</option>
+                      <option value="ordered">Yes — Ordered</option>
+                      <option value="schedule">Yes — To Schedule</option>
+                    </select>
+                  </div>
+                </div>
+
+                {/* LUNCH DETAILS IF DISCUSSED */}
+                {logLunch!=='no'&&(
+                  <div style={{background:'rgba(160,120,64,0.06)',border:'1px solid rgba(160,120,64,0.2)',borderRadius:8,padding:'12px 14px',marginBottom:12}}>
+                    <div style={{fontSize:10,fontWeight:600,textTransform:'uppercase',letterSpacing:'0.08em',color:GOLD,marginBottom:10}}>Lunch Details</div>
+                    <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:10}}>
+                      <div>
+                        <label style={s.label}>Restaurant</label>
+                        <input style={{...s.input,marginBottom:0}} value={logLunchRestaurant} onChange={e=>setLogLunchRestaurant(e.target.value)} placeholder="e.g. Chuy's, Luna Grill..."/>
+                      </div>
+                      <div>
+                        <label style={s.label}>Delivery Date</label>
+                        <input style={{...s.input,marginBottom:0}} type="date" value={logLunchDate} onChange={e=>setLogLunchDate(e.target.value)}/>
+                      </div>
+                    </div>
+                    <div style={{marginTop:10}}>
+                      <label style={s.label}>Staff Count & Notes</label>
+                      <input style={{...s.input,marginBottom:0}} value={logLunchNotes} onChange={e=>setLogLunchNotes(e.target.value)} placeholder="27 staff, dietary restrictions, ordered via EzCater..."/>
+                    </div>
+                  </div>
+                )}
+
+                {/* ADD FOLLOW-UP TASK */}
+                <div style={{display:'flex',alignItems:'center',gap:10,marginBottom:12}}>
+                  <input type="checkbox" id="addTask" checked={logAddTask} onChange={e=>setLogAddTask(e.target.checked)} style={{width:16,height:16,cursor:'pointer'}}/>
+                  <label htmlFor="addTask" style={{fontSize:13,color:'#3D3228',cursor:'pointer'}}>Add follow-up as a task</label>
+                </div>
+
+                <button style={{...s.btnPrimary,width:'100%',padding:'12px',fontSize:13}} onClick={smartLogVisit}>
+                  Save — Updates Office Profile + Visit Vault
+                </button>
+              </div>
+
+              {/* TODAY'S LOGS */}
+              <div style={s.card}>
+                <div style={s.cardHeader}>
+                  <div style={s.cardTitle}>Today's Field Notes</div>
+                  <span style={{fontSize:11,color:'#7A6E64'}}>{todayVisits.length} visits</span>
+                </div>
+                {todayVisits.length===0&&(
+                  <div style={{color:'#7A6E64',fontSize:13,textAlign:'center',padding:'32px 0'}}>
+                    No visits logged yet today.<br/>
+                    <span style={{fontSize:11,marginTop:8,display:'block'}}>Select an office and start logging.</span>
+                  </div>
+                )}
+                {todayVisits.map(v=>(
+                  <div key={v.id} onClick={()=>setSelectedVisit(v)} style={{background:'#FAFAF7',border:'1px solid #EDE6D6',borderRadius:10,padding:14,marginBottom:10,cursor:'pointer',borderLeft:`3px solid ${v.tier==='hot'?HOT:GOLD}`}} onMouseEnter={e=>e.currentTarget.style.borderColor=GOLD} onMouseLeave={e=>e.currentTarget.style.borderColor='#EDE6D6'}>
+                    <div style={{display:'flex',justifyContent:'space-between',marginBottom:6}}>
+                      <div style={{fontWeight:600,fontSize:13}}>{v.office}</div>
+                      <span style={{fontSize:9,fontWeight:700,padding:'2px 7px',borderRadius:10,background:v.tier==='hot'?'rgba(193,123,90,0.12)':'rgba(160,120,64,0.12)',color:v.tier==='hot'?HOT:GOLD,textTransform:'uppercase'}}>{v.tier}</span>
+                    </div>
+                    {v.contact&&<div style={{fontSize:11,color:'#7A6E64',marginBottom:4}}>Spoke with: {v.contact}</div>}
+                    {v.notes&&<div style={{fontSize:12,color:'#7A6E64',lineHeight:1.5,marginBottom:4}}>{v.notes.substring(0,120)}{v.notes.length>120?'...':''}</div>}
+                    {v.gift&&<div style={{fontSize:11,color:GOLD}}>Drop: {v.gift}</div>}
+                    {v.nextAction&&<div style={{fontSize:11,color:SAGE,marginTop:4}}>Next: {v.nextAction}</div>}
                   </div>
                 ))}
               </div>
