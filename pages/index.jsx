@@ -303,14 +303,19 @@ export default function Home() {
                   <div style={s.cardHeader}>
                     <div style={s.cardTitle}>Tasks</div>
                   </div>
-                  {tasks.filter(t=>t.priority!=='week').slice(0,8).map(t=>(
-                    <div key={t.id} style={{display:'flex',alignItems:'flex-start',gap:10,padding:'9px 0',borderBottom:'1px solid #EDE6D6'}}>
-                      <div onClick={()=>toggleTask(t.id,t.done)} style={{width:17,height:17,border:`1.5px solid ${t.done?SAGE:'#C4B49E'}`,borderRadius:4,cursor:'pointer',flexShrink:0,marginTop:2,background:t.done?SAGE:'transparent',display:'flex',alignItems:'center',justifyContent:'center',fontSize:10,color:'white'}}>{t.done?'✓':''}</div>
-                      <div style={{flex:1,fontSize:13,color:t.done?'#7A6E64':'#3D3228',textDecoration:t.done?'line-through':'none'}}>{t.text}</div>
+                  {tasks.slice(0,10).map(t=>(
+                    <div key={t.id} style={{display:'flex',alignItems:'flex-start',gap:10,padding:'9px 0',borderBottom:'1px solid #EDE6D6',opacity:t.done?0.5:1}}>
+                      <div onClick={()=>toggleTask(t.id,t.done)} style={{width:18,height:18,border:`2px solid ${t.done?SAGE:'#C4B49E'}`,borderRadius:4,cursor:'pointer',flexShrink:0,marginTop:1,background:t.done?SAGE:'transparent',display:'flex',alignItems:'center',justifyContent:'center',fontSize:11,color:'white',transition:'all 0.15s'}}>{t.done?'✓':''}</div>
+                      <div style={{flex:1,fontSize:13,color:t.done?'#9A8E82':'#3D3228',textDecoration:t.done?'line-through':'none',lineHeight:1.4}}>{t.text}</div>
                       <div style={{fontSize:9,fontWeight:700,padding:'2px 8px',borderRadius:20,textTransform:'uppercase',background:t.priority==='urgent'?'rgba(193,123,90,0.12)':'rgba(160,120,64,0.14)',color:t.priority==='urgent'?HOT:GOLD}}>{t.priority}</div>
                       <span style={{cursor:'pointer',color:'#7A6E64',fontSize:16}} onClick={()=>deleteTask(t.id)}>×</span>
                     </div>
                   ))}
+                  {tasks.filter(t=>t.done).length>0&&(
+                    <div style={{fontSize:11,color:'#9A8E82',textAlign:'center',padding:'8px 0',borderTop:'1px solid #EDE6D6',marginTop:4}}>
+                      {tasks.filter(t=>t.done).length} completed today
+                    </div>
+                  )}
                   <div style={{display:'flex',gap:8,marginTop:12}}>
                     <input style={{...s.input,marginBottom:0,flex:1}} value={quickTask} onChange={e=>setQuickTask(e.target.value)} placeholder="Quick add..." onKeyDown={e=>e.key==='Enter'&&quickAddTask()}/>
                     <button style={s.btnPrimary} onClick={quickAddTask}>Add</button>
@@ -906,7 +911,7 @@ export default function Home() {
       )}
 
       {/* MOBILE FLOATING LOG BUTTON */}
-      <button className="mobile-log-btn" onClick={()=>setPage('fieldlog')} title="Log a Visit">+</button>
+      {page!=="fieldlog"&&<button className="mobile-log-btn" onClick={()=>setPage('fieldlog')} title="Log a Visit" style={{position:"fixed",bottom:80,right:20,width:58,height:58,borderRadius:"50%",background:GOLD,color:"white",fontSize:28,display:"flex",alignItems:"center",justifyContent:"center",boxShadow:"0 4px 16px rgba(160,120,64,0.4)",cursor:"pointer",border:"none",zIndex:150}}>+</button>}
 
       <style>{`
         @keyframes pulse{0%,100%{opacity:1}50%{opacity:0.35}}
