@@ -872,29 +872,30 @@ export default function Home() {
                     <div style={{fontSize:11,color:'#7A6E64'}}>{group.length} offices</div>
                   </div>
                   <div style={{background:'#FDFCFA',border:'1px solid #DDD5C4',borderRadius:12,overflow:'hidden'}}>
-                    <div style={{display:'grid',gridTemplateColumns:'2fr 1.5fr 1fr 100px 2fr 110px',padding:'8px 16px',background:'#F5F0E8',borderBottom:'1px solid #DDD5C4',gap:12}}>
-                      {['Office','Doctor / Contact','Restaurant','Date','Notes','Action'].map(h=>(
-                        <div key={h} style={{fontSize:9,fontWeight:600,textTransform:'uppercase',letterSpacing:'0.1em',color:'#6E5F50'}}>{h}</div>
-                      ))}
-                    </div>
                     {group.map((l,i)=>(
-                      <div key={l.id} style={{display:'grid',gridTemplateColumns:'2fr 1.5fr 1fr 100px 2fr 110px',padding:'12px 16px',background:i%2===0?'#FDFCFA':'#FAF8F5',borderBottom:i<group.length-1?'1px solid #EDE6D6':'none',borderLeft:'3px solid '+color,gap:12,alignItems:'center'}}>
-                        <div style={{fontWeight:600,fontSize:13,color:'#1A1410'}}>{l.office}</div>
-                        <div>
-                          <div style={{fontSize:12,color:'#3D3228'}}>{l.doctor||'—'}</div>
-                          <div style={{fontSize:11,color:'#7A6E64',marginTop:2}}>{l.contact||'—'}</div>
+                      <div key={l.id} style={{padding:'14px 16px',background:i%2===0?'#FDFCFA':'#FAF8F5',borderBottom:i<group.length-1?'1px solid #EDE6D6':'none',borderLeft:'3px solid '+color}}>
+                        {/* ROW TOP — office + actions */}
+                        <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',gap:10,marginBottom:6}}>
+                          <div style={{flex:1,minWidth:0}}>
+                            <div style={{fontWeight:600,fontSize:13,color:'#1A1410',whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{l.office}</div>
+                            {l.contact&&<div style={{fontSize:11,color:'#7A6E64',marginTop:2}}>{l.contact}</div>}
+                          </div>
+                          <div style={{display:'flex',gap:6,flexShrink:0}}>
+                            {status!=='Delivered'&&(
+                              <button style={{...s.btnPrimary,...s.btnSm}} onClick={()=>updateLunch(l.id,{status:'Delivered'})}>Delivered</button>
+                            )}
+                            {(status==='To Schedule'||status==='Pending')&&(
+                              <button style={{...s.btnSecondary,...s.btnSm}} onClick={()=>updateLunch(l.id,{status:'Ordered'})}>Ordered</button>
+                            )}
+                            <button style={{...s.btnSecondary,...s.btnSm}} onClick={()=>setEditLunch({...l})}>Edit</button>
+                          </div>
                         </div>
-                        <div style={{fontSize:12,color:GOLD,fontWeight:l.restaurant?500:400}}>{l.restaurant||'—'}</div>
-                        <div style={{fontSize:12,color:'#3D3228',fontFamily:'monospace'}}>{l.date?new Date(l.date).toLocaleDateString('en-US',{month:'short',day:'numeric'}):'—'}</div>
-                        <div style={{fontSize:11,color:'#7A6E64',lineHeight:1.4}}>{l.notes||'—'}</div>
-                        <div style={{display:'flex',gap:4,flexWrap:'wrap'}}>
-                          {status!=='Delivered'&&(
-                            <button style={{...s.btnPrimary,...s.btnSm}} onClick={()=>updateLunch(l.id,{status:'Delivered'})}>Delivered</button>
-                          )}
-                          {(status==='To Schedule'||status==='Pending')&&(
-                            <button style={{...s.btnSecondary,...s.btnSm}} onClick={()=>updateLunch(l.id,{status:'Ordered'})}>Ordered</button>
-                          )}
-                          <button style={{...s.btnSecondary,...s.btnSm}} onClick={()=>setEditLunch({...l})}>Edit</button>
+                        {/* ROW BOTTOM — details */}
+                        <div style={{display:'flex',gap:16,flexWrap:'wrap'}}>
+                          {l.restaurant&&<div style={{fontSize:12,color:GOLD,fontWeight:500}}>{l.restaurant}</div>}
+                          {l.date&&<div style={{fontSize:12,color:'#7A6E64',fontFamily:'monospace'}}>{new Date(l.date).toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric'})}</div>}
+                          {l.staffCount&&<div style={{fontSize:11,color:'#7A6E64'}}>{l.staffCount} staff</div>}
+                          {l.notes&&<div style={{fontSize:11,color:'#9A8E82',width:'100%',marginTop:2,lineHeight:1.4}}>{l.notes}</div>}
                         </div>
                       </div>
                     ))}
