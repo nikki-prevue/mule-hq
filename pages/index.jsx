@@ -60,6 +60,9 @@ export default function Home() {
   const [showAddSupply,setShowAddSupply]=useState(false);
   const [lunches,setLunches]=useState([]);
   const [selectedLunch,setSelectedLunch]=useState(null);
+  const [showAddLunch,setShowAddLunch]=useState(false);
+  const [editLunch,setEditLunch]=useState(null);
+  const [newLunch,setNewLunch]=useState({office:'',doctor:'',contact:'',status:'To Schedule',restaurant:'',date:'',notes:'',staffCount:''});
   const [newOffice,setNewOffice]=useState({name:'',doctor:'',city:'Flower Mound',tier:'warm',address:'',contact:'',notes:''});
   const [newSupply,setNewSupply]=useState({name:'',count:0,low:5});
 
@@ -121,6 +124,26 @@ export default function Home() {
     setLogGift('');setLogNotes('');setLogNextAction('');setLogOffice('');
     await loadAll();
   }
+  async function addLunch() {
+    if(!newLunch.office) return;
+    await fetch('/api/lunches',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(newLunch)});
+    setShowAddLunch(false);
+    setNewLunch({office:'',doctor:'',contact:'',status:'To Schedule',restaurant:'',date:'',notes:'',staffCount:''});
+    await loadAll();
+  }
+
+  async function saveLunchEdit() {
+    if(!editLunch) return;
+    await fetch('/api/lunches',{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify(editLunch)});
+    setEditLunch(null);
+    await loadAll();
+  }
+
+  async function deleteLunch(id) {
+    await fetch('/api/lunches',{method:'DELETE',headers:{'Content-Type':'application/json'},body:JSON.stringify({id})});
+    await loadAll();
+  }
+
   async function updateLunch(id, updates) {
     await fetch('/api/lunches',{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({id,...updates})});
     await loadAll();
@@ -592,7 +615,8 @@ export default function Home() {
           <div>
             <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:20}}>
               <div style={s.sectionTitle}>Lunch Tracker <span style={{fontSize:13,color:'#7A6E64',fontFamily:"'Jost',sans-serif",fontWeight:300}}>Appreciation lunches</span></div>
-              <div style={{display:'flex',gap:16}}>
+              <div style={{display:'flex',gap:16,alignItems:'center'}}>
+                <button style={s.btnPrimary} onClick={()=>setShowAddLunch(true)}>+ Add Office</button>
                 {[['Ordered',GOLD],['Pending','#9A8E82'],['To Schedule','#C4B49E'],['Delivered',SAGE]].map(([st,c])=>(
                   <div key={st} style={{display:'flex',alignItems:'center',gap:5,fontSize:11,color:'#7A6E64'}}>
                     <div style={{width:8,height:8,borderRadius:'50%',background:c}}></div>
@@ -641,6 +665,7 @@ export default function Home() {
                           {(status==='To Schedule'||status==='Pending')&&(
                             <button style={{...s.btnSecondary,...s.btnSm}} onClick={()=>updateLunch(l.id,{status:'Ordered'})}>Ordered</button>
                           )}
+                          <button style={{...s.btnSecondary,...s.btnSm}} onClick={()=>setEditLunch({...l})}>Edit</button>
                         </div>
                       </div>
                     ))}
@@ -650,6 +675,82 @@ export default function Home() {
             })}
           </div>
         )}
+
+
+      {/* ADD LUNCH MODAL */}
+      {showAddLunch&&(
+        <div style={s.modal} onClick={e=>e.target===e.currentTarget&&setShowAddLunch(false)}>
+          <div style={{...s.modalBox,width:560}}>
+            <div style={{...s.modalTitle,marginBottom:16}}>Add Lunch</div>
+            <label style={s.label}>Office Name</label>
+            <input style={s.input} value={newLunch.office} onChange={e=>setNewLunch({...newLunch,office:e.target.value})} placeholder="Practice name"/>
+            <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:12}}>
+              <div><label style={s.label}>Doctor</label><input style={s.input} value={newLunch.doctor} onChange={e=>setNewLunch({...newLunch,doctor:e.target.value})} placeholder="Dr. Last Name"/></div>
+              <div><label style={s.label}>Contact Person</label><input style={s.input} value={newLunch.contact} onChange={e=>setNewLunch({...newLunch,contact:e.target.value})} placeholder="Front desk, OM..."/></div>
+            </div>
+            <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:12}}>
+              <div><label style={s.label}>Status</label>
+                <select style={s.select} value={newLunch.status} onChange={e=>setNewLunch({...newLunch,status:e.target.value})}>
+                  <option value="To Schedule">To Schedule</option>
+                  <option value="Pending">Pending (QR Sent)</option>
+                  <option value="Ordered">Ordered</option>
+                  <option value="Delivered">Delivered</option>
+                </select>
+              </div>
+              <div><label style={s.label}>Restaurant</label><input style={s.input} value={newLunch.restaurant} onChange={e=>setNewLunch({...newLunch,restaurant:e.target.value})} placeholder="e.g. Chuy's, Luna Grill..."/></div>
+            </div>
+            <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:12}}>
+              <div><label style={s.label}>Date</label><input style={s.input} type="date" value={newLunch.date} onChange={e=>setNewLunch({...newLunch,date:e.target.value})}/></div>
+              <div><label style={s.label}>Staff Count</label><input style={s.input} type="number" value={newLunch.staffCount} onChange={e=>setNewLunch({...newLunch,staffCount:e.target.value})} placeholder="Number of staff"/></div>
+            </div>
+            <label style={s.label}>Notes</label>
+            <textarea style={s.textarea} value={newLunch.notes} onChange={e=>setNewLunch({...newLunch,notes:e.target.value})} placeholder="Dr. Patel requested, context, special instructions..."/>
+            <div style={{display:'flex',gap:10}}>
+              <button style={s.btnPrimary} onClick={addLunch}>Add</button>
+              <button style={s.btnSecondary} onClick={()=>setShowAddLunch(false)}>Cancel</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* EDIT LUNCH MODAL */}
+      {editLunch&&(
+        <div style={s.modal} onClick={e=>e.target===e.currentTarget&&setEditLunch(null)}>
+          <div style={{...s.modalBox,width:560}}>
+            <div style={{...s.modalTitle,marginBottom:16}}>Edit — {editLunch.office}</div>
+            <label style={s.label}>Office Name</label>
+            <input style={s.input} value={editLunch.office} onChange={e=>setEditLunch({...editLunch,office:e.target.value})}/>
+            <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:12}}>
+              <div><label style={s.label}>Doctor</label><input style={s.input} value={editLunch.doctor||''} onChange={e=>setEditLunch({...editLunch,doctor:e.target.value})}/></div>
+              <div><label style={s.label}>Contact</label><input style={s.input} value={editLunch.contact||''} onChange={e=>setEditLunch({...editLunch,contact:e.target.value})}/></div>
+            </div>
+            <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:12}}>
+              <div><label style={s.label}>Status</label>
+                <select style={s.select} value={editLunch.status} onChange={e=>setEditLunch({...editLunch,status:e.target.value})}>
+                  <option value="To Schedule">To Schedule</option>
+                  <option value="Pending">Pending (QR Sent)</option>
+                  <option value="Ordered">Ordered</option>
+                  <option value="Delivered">Delivered</option>
+                </select>
+              </div>
+              <div><label style={s.label}>Restaurant</label><input style={s.input} value={editLunch.restaurant||''} onChange={e=>setEditLunch({...editLunch,restaurant:e.target.value})}/></div>
+            </div>
+            <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:12}}>
+              <div><label style={s.label}>Date</label><input style={s.input} type="date" value={editLunch.date||''} onChange={e=>setEditLunch({...editLunch,date:e.target.value})}/></div>
+              <div><label style={s.label}>Staff Count</label><input style={s.input} type="number" value={editLunch.staffCount||''} onChange={e=>setEditLunch({...editLunch,staffCount:e.target.value})}/></div>
+            </div>
+            <label style={s.label}>Notes</label>
+            <textarea style={s.textarea} value={editLunch.notes||''} onChange={e=>setEditLunch({...editLunch,notes:e.target.value})}/>
+            <div style={{display:'flex',gap:10,justifyContent:'space-between'}}>
+              <div style={{display:'flex',gap:10}}>
+                <button style={s.btnPrimary} onClick={saveLunchEdit}>Save Changes</button>
+                <button style={s.btnSecondary} onClick={()=>setEditLunch(null)}>Cancel</button>
+              </div>
+              <button style={{...s.btnSecondary,color:'#E85C5C',borderColor:'#E85C5C'}} onClick={()=>{if(confirm('Remove this lunch?')){deleteLunch(editLunch.id);setEditLunch(null);}}}>Remove</button>
+            </div>
+          </div>
+        </div>
+      )}
 
       <style>{`@keyframes pulse{0%,100%{opacity:1}50%{opacity:0.35}}*::-webkit-scrollbar{width:5px}*::-webkit-scrollbar-thumb{background:#DDD5C4;border-radius:3px}`}</style>
     </div>
