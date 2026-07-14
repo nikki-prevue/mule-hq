@@ -1,35 +1,34 @@
-const VISITS = [
-{"id":"v1","office":"Hillcrest Dental at Castle Hills","doctor":"Dr. Namrata Shah","city":"Lewisville","gift":"Dirty soda kit + Patel cards + in-network sheet + ROOT Med Spa discount card + online referral access","contact":"Astrid (front)","notes":"Uses monthly in-office traveling periodontist + places own implants. Keeps cases in-house except specialty/complex. Dr. Patel & Dr. Shah haven't met. Offered L&L/happy hour.","nextAction":"Bring referral pads when order arrives; return with Tiff's Treats + ref sheets; pursue L&L/happy hour","tier":"hot","date":"2026-07-06"},
-{"id":"v2","office":"Smiles Family Dental","doctor":"Dr. Angelie Zamora / Dr. Ruasha Shrestha","city":"Flower Mound","gift":"Dirty soda kit + in-network sheet","contact":"Alta (front); OM = Patrick (busy)","notes":"Have referred to ROOT before. Offered L&L; pitched connecting Dr. Patel and Dr. Zamora.","nextAction":"Referral-forms drop-back; ask for Patrick next visit; L&L follow-up","tier":"warm","date":"2026-07-06"},
-{"id":"v3","office":"Endodontic Excellence (Rajiv Patel)","doctor":"Dr. Rajiv Patel","city":"Flower Mound","gift":"Dirty soda kit","contact":"Cassie (front, brief — on a call)","notes":"Stocked, nothing needed. Warm — Dr. Patel's friend / study-club endo.","nextAction":"Keep warm — none owed","tier":"hot","date":"2026-07-06"},
-{"id":"v4","office":"Titensor Dental","doctor":"Dr. Brett Titensor / Dr. Joseph Mann","city":"Flower Mound","gift":"Dirty soda box","contact":"Tracey (front)","notes":"Relocating to new center late July / early August; excited for expanded space.","nextAction":"Follow-up visit after their move to congratulate + build relationship","tier":"warm","date":"2026-07-06"},
-{"id":"v5","office":"Smiles & Beyond Dental","doctor":"Dr. Ira Mims","city":"Flower Mound","gift":"Dirty soda box","contact":"Dr. Ira Mims (in person) + team","notes":"Great doctor rapport; sends a lot of extractions incl. tough cases; uses online referrals. Dr. Patel already has a relationship (toured new location).","nextAction":"Keep warm; L&L / relationship candidate","tier":"warm","date":"2026-07-06"},
-{"id":"v6","office":"Oval Dental","doctor":"Dr. Virgil Vacarean","city":"Flower Mound","gift":"Patel cards + in-network sheet","contact":"Stacey (front, brief)","notes":"Not currently referring; office busy.","nextAction":"Circle back to learn referral flow","tier":"cold","date":"2026-07-06"},
-{"id":"v7","office":"Stokes Orthodontics","doctor":"Dr. Lisa Stokes","city":"Flower Mound","gift":"Patel cards + in-network sheet","contact":"Stacey (front, brief)","notes":"Not currently referring; brief intro.","nextAction":"Build relationship; learn where they refer","tier":"cold","date":"2026-07-06"},
-{"id":"v8","office":"Capehart Dental","doctor":"Dr. Christopher Capehart","city":"Lewisville","gift":"Dirty soda kit + Patel card + in-network sheet","contact":"Gabby (front)","notes":"Closed for lunch midday — returned at 2pm reopen. ROOT Scan Me emergency sign displayed front-and-center. Gave dirty-soda recipe tutorial.","nextAction":"Keep in-network top of mind; L&L candidate","tier":"hot","date":"2026-07-07"},
-{"id":"v9","office":"Active Dental","doctor":"Dr. Jyothi Chodisetty","city":"Flower Mound","gift":"More Dr. Patel business cards (drop-back fulfilled)","contact":"Suzette & Natasha (front)","notes":"Fulfilled standing card request; warm, high demand.","nextAction":"L&L / appreciation-lunch candidate","tier":"hot","date":"2026-07-07"},
-{"id":"v10","office":"ACE Dental - Lewisville","doctor":"Dr. Shailaja Reddy","city":"Lewisville","gift":"In-network sheet + Patel cards","contact":"Amanda (front)","notes":"Small office, 4 staff; closed Wed/Sun. Educated on We Save Teeth. Offered L&L.","nextAction":"L&L candidate (small team); bring dirty soda + ref pads next round","tier":"warm","date":"2026-07-07"},
-{"id":"v11","office":"Hebron Orthodontics","doctor":"Dr. Vincent To","city":"Flower Mound","gift":"Dirty soda + materials","contact":"Christy (OM); 6 staff","notes":"They hand patients MULTIPLE perio-specialist cards and let the patient choose. ROOT needs to be the preferred name. Admin day.","nextAction":"Stay top-of-mind; strong L&L target","tier":"hot","date":"2026-07-07"},
-{"id":"v12","office":"Trinity Dental Care","doctor":"","city":"Flower Mound","gift":"Dirty soda box + introduction folder + in-network sheet","contact":"Kimberly (OM); 8 staff; (972) 394-5200","notes":"Currently refers perio to competitor Sigma; very interested. HIGH opportunity. Unplanned drop-in.","nextAction":"Displace Sigma via presence + L&L / Dr. Patel intro","tier":"hot","date":"2026-07-07"},
-{"id":"v13","office":"Ranchview Family Dentistry","doctor":"","city":"Other","gift":"Dirty soda + Patel cards + insurance sheet","contact":"Madeline & Etzel (front); ~10 staff","notes":"Happy active referrer (online method); feedback everything is perfect. Teased upcoming ROOT sleep-apnea/snoring service.","nextAction":"Maintain; follow up when sleep-apnea service launches","tier":"hot","date":"2026-07-08"},
-{"id":"v14","office":"Prairie Creek Dental","doctor":"Dr. Gregory Holbrook","city":"Lewisville","gift":"Dirty soda box + Patel cards","contact":"Gabby (front); 5 staff","notes":"First touch. Keeps cases in-house (low perio volume); taking new patients; gave their cards. Opened two-way GD relationship. Interested in in-network.","nextAction":"Nurture as a two-way GD outlet","tier":"warm","date":"2026-07-08"},
-{"id":"v15","office":"Flower Mound Family Dentistry","doctor":"Dr. Gray / Dr. Nash","city":"Flower Mound","gift":"Tiff's Treats welcome gift","contact":"Dr. Nash (in person, first day!) + Madison","notes":"Met new Dr. Nash — in office Wed/Thu; gave him Dr. Patel's cell for an intro lunch/dinner; invited to study clubs & L&Ls. Pearl Street DSO; Dr. Gray is a strong referrer + Dr. Patel's friend.","nextAction":"Lock Patel-Nash lunch; owe referral sheets on next drop","tier":"hot","date":"2026-07-08"},
-{"id":"v16","office":"Tenney Dental","doctor":"Dr. Thomas Tenney","city":"Flower Mound","gift":"Dirty soda box","contact":"Krista / Lisa (front)","notes":"Happy-hour follow-up — Dr. Tenney's summer is packed; likely a FALL happy hour. Left Patel + NW cell to pass to Dr. Tenney.","nextAction":"Revisit in fall to schedule happy hour","tier":"hot","date":"2026-07-08"},
-{"id":"v17","office":"Lantana Family Dentistry","doctor":"Dr. Cleveland","city":"Other","gift":"Dirty soda gift + in-network sheet","contact":"Ashley (front)","notes":"Refers perio elsewhere; mutual patients. Positioned ROOT as urgent/same-day option. Closes 1pm Wednesdays.","nextAction":"Stay on radar as their urgent-case option","tier":"warm","date":"2026-07-08"},
-{"id":"v18","office":"Ace Smile Dentistry","doctor":"Dr. Prathyusha Mendu","city":"Flower Mound","gift":"Mug quad + introduction folder + in-network sheet","contact":"Christina (assistant/front); office of 4, open ~3-4 yrs","notes":"KEY OPPORTUNITY — actively searching for a perio office to refer to; current one (Las Colinas) too far, so patients skip perio follow-ups. ROOT is 15 min away. Offered L&L + happy hour.","nextAction":"Follow up in ~1 week to lock L&L / happy hour — HIGH PRIORITY","tier":"hot","date":"2026-07-09"},
-{"id":"v19","office":"Prestige Family Dentistry","doctor":"Dr. Vincent DiRusso","city":"Flower Mound","gift":"Market Street appreciation spread (veggie, fruit, sandwich wraps) + refilled Patel cards","contact":"Dr. Vincent DiRusso (in person) + Stacy (scheduler) + Daniel (hygienist)","notes":"Delivered lunch on time — team thrilled. Dr. DiRusso & Dr. Patel are good friends (grew up in Michigan). Office tour (there 5 yrs); staff group photo.","nextAction":"VIP top referrer (65/yr) — keep close","tier":"hot","date":"2026-07-09"},
-{"id":"v20","office":"Northlake Dentistry","doctor":"Dr. Catherine Whinery","city":"Other","gift":"Appreciation-lunch offer (QR code scanned) + lunch-order card","contact":"Kaylee (front, ~1 mo)","notes":"Per Amanda — ~$10K case. Grateful/excited; order pending.","nextAction":"Follow up when lunch order submitted","tier":"warm","date":"2026-07-09"},
-{"id":"v21","office":"Active Dental","doctor":"Dr. Jyothi Chodisetty","city":"Flower Mound","gift":"Appreciation-lunch offer (QR scanned) + lunch-order card","contact":"An assistant (Natasha at lunch)","notes":"Top referrer, never had an appreciation lunch; order pending.","nextAction":"Follow up on lunch order; L&L candidate","tier":"hot","date":"2026-07-09"},
-{"id":"v22","office":"The Dental Studio","doctor":"Dr. Yasi Sabour","city":"Flower Mound","gift":"Appreciation lunch — ORDERED (Luna Grill; Nikki paid in person; Yori picking up)","contact":"Yori (insurance/treatment plans) + staff","notes":"Recognized Nikki instantly; ordered on the spot. 30-min visit, great rapport. Josh at Luna Grill gave a free drink.","nextAction":"Confirm lunch delivery; strong L&L candidate","tier":"hot","date":"2026-07-09"},
-{"id":"v23","office":"Lifetime Dental of Flower Mound","doctor":"Dr. Dexter Dafney","city":"Flower Mound","gift":"Appreciation-lunch offer (QR scanned) + lunch-order card","contact":"Tyra (front)","notes":"#1 REFERRER (36/yr, high acceptance). Wanted to introduce Dr. Dafney but he was out.","nextAction":"Follow up on order; catch Dr. Dafney in person next time","tier":"hot","date":"2026-07-09"}
-];
+const SUPABASE_URL = process.env.SUPABASE_URL;
+const SUPABASE_KEY = process.env.SUPABASE_SERVICE_KEY;
 
-export default function handler(req, res) {
+async function query(method, path, body) {
+  const res = await fetch(`${SUPABASE_URL}/rest/v1/${path}`, {
+    method,
+    headers: {
+      'apikey': SUPABASE_KEY,
+      'Authorization': `Bearer ${SUPABASE_KEY}`,
+      'Content-Type': 'application/json',
+      'Prefer': 'return=representation'
+    },
+    body: body ? JSON.stringify(body) : undefined
+  });
+  const text = await res.text();
+  return text ? JSON.parse(text) : [];
+}
+
+export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
-  if (req.method === 'GET') return res.status(200).json(VISITS);
-  if (req.method === 'POST') {
-    const v = { ...req.body, id: 'v' + Date.now(), date: new Date().toISOString().split('T')[0] };
-    VISITS.push(v);
-    return res.status(200).json(v);
+  try {
+    if (req.method === 'GET') {
+      const data = await query('GET', 'visits?order=created_at.desc&select=*');
+      return res.status(200).json(data);
+    }
+    if (req.method === 'POST') {
+      const { id, ...body } = req.body;
+      const data = await query('POST', 'visits', { ...body, date: body.date || new Date().toISOString().split('T')[0] });
+      return res.status(200).json(data[0] || {});
+    }
+  } catch (e) {
+    return res.status(500).json({ error: e.message });
   }
 }
