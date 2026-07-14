@@ -68,6 +68,8 @@ export default function Home() {
   const [eodDraft,setEodDraft]=useState('');
   const [showAddOffice,setShowAddOffice]=useState(false);
   const [showAddSupply,setShowAddSupply]=useState(false);
+  const [routeSearch,setRouteSearch]=useState('');
+  const [showRouteSearch,setShowRouteSearch]=useState(false);
   const [lunches,setLunches]=useState([]);
   const [selectedLunch,setSelectedLunch]=useState(null);
   const [showAddLunch,setShowAddLunch]=useState(false);
@@ -274,28 +276,97 @@ export default function Home() {
                 <div style={s.card}>
                   <div style={s.cardHeader}>
                     <div style={s.cardTitle}>Today's Route</div>
-                    <span style={s.cardAction} onClick={()=>{const stops=route.sort((a,b)=>a.order-b.order).map(s=>encodeURIComponent(s.address||s.name+' '+s.city));if(!stops.length)return;window.open(`https://www.google.com/maps/dir/${stops.join('/')}`,'_blank');}}>Open Maps</span>
+                    <div style={{display:'flex',gap:10,alignItems:'center'}}>
+                      {route.length>0&&(
+                        <span style={s.cardAction} onClick={()=>{
+                          const stops=route.sort((a,b)=>a.order-b.order).map(s=>encodeURIComponent((s.address||'')+' '+(s.city||'')+' TX'));
+                          window.open(`https://www.google.com/maps/dir/${stops.join('/')}+`,'_blank');
+                        }}>Open in Maps</span>
+                      )}
+                      <span style={s.cardAction} onClick={()=>setShowRouteSearch(!showRouteSearch)}>+ Add Stop</span>
+                    </div>
                   </div>
+
+                  {/* ROUTE SEARCH */}
+                  {showRouteSearch&&(
+                    <div style={{marginBottom:14,position:'relative'}}>
+                      <input
+                        style={{...s.input,marginBottom:0}}
+                        value={routeSearch}
+                        onChange={e=>setRouteSearch(e.target.value)}
+                        placeholder="Search offices to add..."
+                        autoFocus
+                      />
+                      {routeSearch.length>0&&(
+                        <div style={{position:'absolute',top:'100%',left:0,right:0,background:'#FDFCFA',border:'1px solid #DDD5C4',borderRadius:8,zIndex:50,maxHeight:200,overflowY:'auto',marginTop:4,boxShadow:'0 4px 16px rgba(0,0,0,0.08)'}}>
+                          {offices.filter(o=>
+                            o.status!=='Do Not Target'&&
+                            !route.find(r=>r.name===o.name)&&
+                            (o.name.toLowerCase().includes(routeSearch.toLowerCase())||
+                            (o.city||'').toLowerCase().includes(routeSearch.toLowerCase()))
+                          ).slice(0,6).map(o=>(
+                            <div key={o.id} onClick={()=>{
+                              setRoute([...route,{...o,order:route.length+1,done:false}]);
+                              setRouteSearch('');
+                              setShowRouteSearch(false);
+                            }} style={{padding:'10px 14px',cursor:'pointer',borderBottom:'1px solid #EDE6D6',fontSize:13}} onMouseEnter={e=>e.currentTarget.style.background='#F5EFE6'} onMouseLeave={e=>e.currentTarget.style.background='transparent'}>
+                              <div style={{fontWeight:500}}>{o.name}</div>
+                              <div style={{fontSize:11,color:'#7A6E64'}}>{o.city} · {o.tier}</div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {/* ROUTE STOPS */}
                   {route.length===0?(
                     <div>
-                      <div style={{color:'#7A6E64',fontSize:13,textAlign:'center',padding:'16px 0'}}>No stops planned. Add from Offices tab.</div>
+                      <div style={{color:'#7A6E64',fontSize:13,textAlign:'center',padding:'12px 0'}}>No stops yet. Type an office name above to add.</div>
                       <div style={s.divider}/>
                       <div style={{background:'rgba(92,127,89,0.08)',border:'1px solid rgba(92,127,89,0.2)',borderRadius:10,padding:16}}>
                         <div style={{fontSize:10,fontWeight:600,textTransform:'uppercase',letterSpacing:'0.1em',color:SAGE,marginBottom:10}}>Dead Day Playbook</div>
-                        <div style={{fontSize:13,color:'#3D3228',lineHeight:2.2}}>1. Follow up Ace Smile — lock L&L / happy hour<br/>2. Confirm lunch deliveries — The Dental Studio + Prestige<br/>3. Collect lunch orders — Northlake, Active, Lifetime<br/>4. Drop referral pads once order arrives (7 offices)<br/>5. Lock Dr. Patel + Dr. Nash intro lunch<br/>6. Update Referral Lab — flag closed / do not target offices</div>
+                        <div style={{fontSize:13,color:'#3D3228',lineHeight:2.2}}>
+                          1. Follow up Ace Smile — lock L&L / happy hour<br/>
+                          2. Confirm lunch deliveries — The Dental Studio<br/>
+                          3. Cross Timbers lunch tomorrow 12pm — confirm<br/>
+                          4. Drop referral pads once order arrives<br/>
+                          5. Lock Dr. Patel + Dr. Nash intro lunch<br/>
+                          6. Update Referral Lab — flag closed offices
+                        </div>
                       </div>
                     </div>
-                  ):route.map((stop,i)=>(
-                    <div key={i} style={{display:'flex',alignItems:'center',gap:12,padding:'11px 0',borderBottom:'1px solid #EDE6D6'}}>
-                      <div style={{width:26,height:26,borderRadius:'50%',border:`1.5px solid ${stop.done?SAGE:GOLD}`,color:stop.done?SAGE:GOLD,display:'flex',alignItems:'center',justifyContent:'center',fontSize:11,fontWeight:700,flexShrink:0}}>{stop.order}</div>
-                      <div style={{flex:1}}>
-                        <div style={{fontSize:13,fontWeight:500}}>{stop.name}</div>
-                        <div style={{fontSize:11,color:'#7A6E64'}}>{stop.city}</div>
+                  ):(
+                    <div>
+                      {route.sort((a,b)=>a.order-b.order).map((stop,i)=>(
+                        <div key={i} style={{display:'flex',alignItems:'center',gap:10,padding:'11px 0',borderBottom:'1px solid #EDE6D6',opacity:stop.done?0.6:1}}>
+                          {/* STOP NUMBER */}
+                          <div style={{width:28,height:28,borderRadius:'50%',border:`2px solid ${stop.done?SAGE:GOLD}`,color:stop.done?SAGE:GOLD,display:'flex',alignItems:'center',justifyContent:'center',fontSize:12,fontWeight:700,flexShrink:0,background:stop.done?'rgba(92,127,89,0.08)':'transparent'}}>{stop.done?'✓':stop.order}</div>
+                          {/* OFFICE INFO */}
+                          <div style={{flex:1,minWidth:0}}>
+                            <div style={{fontSize:13,fontWeight:600,color:stop.done?'#9A8E82':'#1A1410',textDecoration:stop.done?'line-through':'none',whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{stop.name}</div>
+                            <div style={{fontSize:11,color:'#7A6E64'}}>{stop.city}{stop.address?` · ${stop.address}`:''}</div>
+                          </div>
+                          {/* ACTIONS */}
+                          <div style={{display:'flex',gap:6,flexShrink:0}}>
+                            {stop.address&&(
+                              <button style={{...s.btnSecondary,...s.btnSm,padding:'5px 10px'}} onClick={()=>window.open(`https://maps.apple.com/?address=${encodeURIComponent(stop.address+' '+stop.city+' TX')}`,'_blank')}>Nav</button>
+                            )}
+                            <button style={{...s.btnSecondary,...s.btnSm,background:stop.done?'rgba(92,127,89,0.1)':undefined,color:stop.done?SAGE:undefined}} onClick={()=>setRoute(route.map((r,ri)=>ri===i?{...r,done:!r.done}:r))}>{stop.done?'Undo':'Done'}</button>
+                            <span style={{cursor:'pointer',color:'#C4B49E',fontSize:18,lineHeight:1,alignSelf:'center'}} onClick={()=>setRoute(route.filter((_,ri)=>ri!==i))}>×</span>
+                          </div>
+                        </div>
+                      ))}
+                      {/* ROUTE SUMMARY */}
+                      <div style={{marginTop:12,padding:'10px 14px',background:'#F5F0E8',borderRadius:8,display:'flex',justifyContent:'space-between',alignItems:'center'}}>
+                        <div style={{fontSize:12,color:'#7A6E64'}}>{route.filter(s=>s.done).length} of {route.length} completed</div>
+                        <button style={{...s.btnPrimary,...s.btnSm}} onClick={()=>{
+                          const stops=route.sort((a,b)=>a.order-b.order).map(s=>encodeURIComponent((s.address||s.name)+' '+(s.city||'')+' TX'));
+                          window.open(`https://maps.apple.com/?daddr=${stops.join('&daddr=')}+`,'_blank');
+                        }}>Full Route in Maps</button>
                       </div>
-                      <button style={{...s.btnSecondary,...s.btnSm}} onClick={()=>setRoute(route.map((r,ri)=>ri===i?{...r,done:!r.done}:r))}>{stop.done?'Undo':'Done'}</button>
-                      <span style={{cursor:'pointer',color:'#7A6E64',fontSize:17}} onClick={()=>setRoute(route.filter((_,ri)=>ri!==i))}>×</span>
                     </div>
-                  ))}
+                  )}
                 </div>
               </div>
               <div>
