@@ -143,6 +143,65 @@ export default function Home() {
     setLogGift('');setLogNotes('');setLogNextAction('');setLogOffice('');
     await loadAll();
   }
+
+
+  async function saveQuickNote(){
+    if(!quickNoteOffice||!quickNoteText.trim()){alert('Select an office and add a note.');return;}
+    setQuickNoteSaving(true);
+    const officeRecord=offices.find(o=>o.name===quickNoteOffice);
+    const timestamp=new Date();
+    const timeStr=timestamp.toLocaleString('en-US',{month:'short',day:'numeric',hour:'numeric',minute:'2-digit',hour12:true});
+    const noteEntry='['+quickNoteType+' — '+timeStr+'] '+quickNoteText.trim();
+    try{
+      await fetch('/api/visits',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({
+        office:quickNoteOffice,doctor:officeRecord?.doctor||'',contact:'',gift:'',
+        notes:noteEntry,nextAction:'',tier:officeRecord?.tier||'warm',
+        date:timestamp.toISOString().split('T')[0],
+      })});
+      const updatedNotes=officeRecord?.notes?officeRecord.notes+' | '+noteEntry:noteEntry;
+      await fetch('/api/offices',{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({id:officeRecord?.id,notes:updatedNotes})});
+      setQuickNoteOffice('');setQuickNoteText('');setQuickNoteType('Call');
+      await loadAll();
+    }catch(e){console.error('quick note error:',e);}
+    setQuickNoteSaving(false);
+  }
+
+  async function smartLogVisit(){
+    if(!logOffice){alert('Select an office.');return;}
+    const officeRecord=offices.find(o=>o.name===logOffice);
+    await fetch('/api/visits',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({
+      office:logOffice,doctor:officeRecord?.doctor||'',contact:logContact,
+      gift:logGift,notes:logNotes,nextAction:logNextAction,tier:logTier,
+      date:new Date().toISOString().split('T')[0]
+    })});
+    await fetch('/api/offices',{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({
+      id:officeRecord?.id,tier:logTier,
+      contact:logContact||officeRecord?.contact,
+      gift:logGift||officeRecord?.gift,
+      notes:logNotes?(officeRecord?.notes?officeRecord.notes+' | '+logNotes:logNotes):officeRecord?.notes,
+      nextAction:logNextAction,
+      lastVisit:new Date().toISOString().split('T')[0],
+    })});
+    if(logLunch!=='no'){
+      const lunchStatus=logLunch==='pending'?'Pending':logLunch==='ordered'?'Ordered':'To Schedule';
+      await fetch('/api/lunches',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({
+        office:logOffice,doctor:officeRecord?.doctor||'',contact:logContact,
+        status:lunchStatus,restaurant:logLunchRestaurant||null,
+        date:logLunchDate||null,notes:logLunchNotes||'Discussed during visit',staffCount:null
+      })});
+    }
+    if(logAddTask&&logNextAction){
+      await fetch('/api/tasks',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({
+        text:logOffice+' — '+logNextAction,priority:'today',done:false
+      })});
+    }
+    setLogOffice('');setLogContact('');setLogGift('');setLogNotes('');
+    setLogNextAction('');setLogTier('warm');setLogLunch('no');
+    setLogLunchRestaurant('');setLogLunchDate('');setLogLunchNotes('');
+    setLogAddTask(false);
+    await loadAll();
+  }
+
   async function addLunch() {
     if(!newLunch.office) return;
     await fetch('/api/lunches',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(newLunch)});
