@@ -207,7 +207,7 @@ export default function Home() {
       <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;500;600&family=Jost:wght@300;400;500;600&display=swap" rel="stylesheet"/>
 
       {/* TOPBAR */}
-      <div style={s.topbar}>
+      <div className="topbar-inner" style={s.topbar}>
         <div style={s.logo}>MULE <span style={{color:GOLD}}>HQ</span></div>
         <div style={{display:'flex',alignItems:'center',gap:24}}>
           <span style={{fontSize:11,color:'#7A6E64'}}><span style={{display:'inline-block',width:6,height:6,borderRadius:'50%',background:SAGE,marginRight:5}}></span>Live</span>
@@ -216,12 +216,28 @@ export default function Home() {
         </div>
       </div>
 
-      {/* NAV */}
-      <div style={s.nav}>
+      {/* DESKTOP NAV */}
+      <div className="desktop-nav" style={s.nav}>
         {TABS.map((t,i)=><div key={t} style={s.tab(page===t)} onClick={()=>setPage(t)}>{LABELS[i]}</div>)}
       </div>
 
-      <div style={s.main}>
+      {/* MOBILE BOTTOM NAV */}
+      <div className="mobile-nav" style={{position:'fixed',bottom:0,left:0,right:0,background:'#FDFCFA',borderTop:'1px solid #DDD5C4',display:'flex',zIndex:100,height:64}}>
+        {[
+          ['command','⌂','Command'],
+          ['offices','◎','Offices'],
+          ['fieldlog','✎','Log'],
+          ['vault','⊟','Vault'],
+          ['lunches','◈','Lunches'],
+        ].map(([t,icon,label])=>(
+          <div key={t} onClick={()=>setPage(t)} style={{flex:1,display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',cursor:'pointer',color:page===t?GOLD:'#9A8E82',borderTop:page===t?`2px solid ${GOLD}`:'2px solid transparent',paddingTop:4}}>
+            <div style={{fontSize:18,lineHeight:1}}>{icon}</div>
+            <div style={{fontSize:9,fontWeight:600,letterSpacing:'0.06em',textTransform:'uppercase',marginTop:3}}>{label}</div>
+          </div>
+        ))}
+      </div>
+
+      <div className="main-content" style={{...s.main,paddingBottom:80}}>
 
         {/* ═══ COMMAND CENTER ═══ */}
         {page==='command'&&(
@@ -238,7 +254,7 @@ export default function Home() {
               <span style={{fontFamily:'monospace',fontSize:13,color:'#3D3228'}}>{time}</span>
               <span style={{marginLeft:'auto',fontSize:11,fontWeight:600,letterSpacing:'0.1em',textTransform:'uppercase',color:GOLD}}>{phase}</span>
             </div>
-            <div style={s.grid2}>
+            <div className="grid-main" style={s.grid2}>
               <div>
                 <div style={s.card}>
                   <div style={s.cardHeader}>
@@ -247,9 +263,9 @@ export default function Home() {
                   </div>
                   <div style={{fontSize:15,lineHeight:1.8,color:'#3D3228',background:'#FAFAF7',borderRadius:8,padding:18,fontFamily:"'Cormorant Garamond',serif",border:'1px solid #EDE6D6'}}>{briefing}</div>
                 </div>
-                <div style={{display:'flex',gap:14,marginBottom:20}}>
+                <div className="stat-row-inner" style={{display:'flex',gap:14,marginBottom:20}}>
                   {[{val:todayVisits.length,lbl:'Visits Today',c:'#1A1410'},{val:hotCount,lbl:'Hot Offices',c:HOT},{val:urgentTasks,lbl:'Urgent Tasks',c:WARM},{val:lowSupplies,lbl:'Low Supplies',c:SAGE}].map((st,i)=>(
-                    <div key={i} style={s.statPill}>
+                    <div key={i} className="stat-pill-inner" style={s.statPill}>
                       <div style={{fontFamily:"'Cormorant Garamond',serif",fontSize:28,fontWeight:500,color:st.c}}>{st.val}</div>
                       <div style={{fontSize:10,color:'#7A6E64',marginTop:4,letterSpacing:'0.06em',textTransform:'uppercase'}}>{st.lbl}</div>
                     </div>
@@ -318,7 +334,7 @@ export default function Home() {
         {page==='offices'&&(
           <div>
             <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:20}}>
-              <div style={s.sectionTitle}>Office Tracker <span style={{fontSize:13,color:'#7A6E64',fontFamily:"'Jost',sans-serif",fontWeight:300}}>Flower Mound · Highland Village · Lewisville</span></div>
+              <div className="section-title-inner" style={s.sectionTitle}>Office Tracker <span style={{fontSize:13,color:'#7A6E64',fontFamily:"'Jost',sans-serif",fontWeight:300}}>Flower Mound · Highland Village · Lewisville</span></div>
               <button style={s.btnPrimary} onClick={()=>setShowAddOffice(true)}>+ Add Office</button>
             </div>
             <div style={{display:'flex',gap:10,marginBottom:20,flexWrap:'wrap',alignItems:'center'}}>
@@ -363,7 +379,7 @@ export default function Home() {
                     </div>
                     <div style={{background:'#FDFCFA',border:'1px solid #DDD5C4',borderRadius:12,overflow:'hidden'}}>
                       {/* TABLE HEADER */}
-                      <div style={{display:'grid',gridTemplateColumns:'3fr 2fr 100px 110px 2fr',gap:0,padding:'8px 16px',background:'#F5F0E8',borderBottom:'1px solid #DDD5C4'}}>
+                      <div className="city-table-header" style={{display:'grid',gridTemplateColumns:'3fr 2fr 100px 110px 2fr',gap:0,padding:'8px 16px',background:'#F5F0E8',borderBottom:'1px solid #DDD5C4'}}>
                         {['Office / Doctor','Contact','Tier','Last Touch','Next Action'].map(h=>(
                           <div key={h} style={{fontSize:9,fontWeight:600,textTransform:'uppercase',letterSpacing:'0.1em',color:'#6E5F50'}}>{h}</div>
                         ))}
@@ -374,7 +390,7 @@ export default function Home() {
                         const isDnt=dnt(o);
                         const rowBg=i%2===0?'#FDFCFA':'#FAF8F5';
                         return(
-                          <div key={o.id} onClick={()=>!isDnt&&setSelectedOffice(o)} style={{display:'grid',gridTemplateColumns:'3fr 2fr 100px 110px 2fr',gap:0,padding:'12px 16px',background:isDnt?'#F5F3F0':rowBg,borderBottom:i<cityOffices.length-1?'1px solid #EDE6D6':'none',cursor:isDnt?'default':'pointer',borderLeft:`3px solid ${isDnt?'#C4B49E':o.tier==='hot'?'#C17B5A':od?'#E85C5C':'#DDD5C4'}`,transition:'background 0.1s',opacity:isDnt?0.55:1}} onMouseEnter={e=>{if(!isDnt)e.currentTarget.style.background='#F5EFE6';}} onMouseLeave={e=>{e.currentTarget.style.background=isDnt?'#F5F3F0':rowBg;}}>
+                          <div key={o.id} onClick={()=>!isDnt&&setSelectedOffice(o)} className="city-office-row" style={{display:'grid',gridTemplateColumns:'3fr 2fr 100px 110px 2fr',gap:0,padding:'12px 16px',background:isDnt?'#F5F3F0':rowBg,borderBottom:i<cityOffices.length-1?'1px solid #EDE6D6':'none',cursor:isDnt?'default':'pointer',borderLeft:`3px solid ${isDnt?'#C4B49E':o.tier==='hot'?'#C17B5A':od?'#E85C5C':'#DDD5C4'}`,transition:'background 0.1s',opacity:isDnt?0.55:1}} onMouseEnter={e=>{if(!isDnt)e.currentTarget.style.background='#F5EFE6';}} onMouseLeave={e=>{e.currentTarget.style.background=isDnt?'#F5F3F0':rowBg;}}>
                           <div>
                             <div style={{display:'flex',alignItems:'center',gap:6,flexWrap:'wrap'}}>
                               <span style={{fontSize:13,fontWeight:600,color:isDnt?'#9A8E82':'#1A1410'}}>{o.name}</span>
@@ -414,12 +430,12 @@ export default function Home() {
             {/* QUICK NOTE BANNER */}
             <div style={{background:'#FDFCFA',border:'1px solid #DDD5C4',borderRadius:12,padding:'18px 22px',marginBottom:20}}>
               <div style={{fontSize:10,fontWeight:600,textTransform:'uppercase',letterSpacing:'0.12em',color:'#6E5F50',marginBottom:12}}>Quick Note — Phone Call, Email, Text, Any Interaction</div>
-              <div style={{display:'grid',gridTemplateColumns:'2fr 140px 1fr auto',gap:10,alignItems:'center'}}>
+              <div className="quick-note-bar" style={{display:'grid',gridTemplateColumns:'2fr 140px 1fr auto',gap:10,alignItems:'center'}}>
                 <select style={{...s.select,marginBottom:0}} value={quickNoteOffice} onChange={e=>setQuickNoteOffice(e.target.value)}>
                   <option value="">Select office...</option>
                   {offices.filter(o=>o.status!=='Do Not Target').map(o=><option key={o.id} value={o.name}>{o.name}</option>)}
                 </select>
-                <select style={{...s.select,marginBottom:0}} value={quickNoteType} onChange={e=>setQuickNoteType(e.target.value)}>
+                <select className="qn-type" style={{...s.select,marginBottom:0}} value={quickNoteType} onChange={e=>setQuickNoteType(e.target.value)}>
                   <option value="Call">Phone Call</option>
                   <option value="Email">Email</option>
                   <option value="Text">Text</option>
@@ -445,7 +461,7 @@ export default function Home() {
               <div style={{fontSize:11,color:'#7A6E64',marginTop:8}}>Auto-stamps date & time. Saves to office profile and Visit Vault.</div>
             </div>
 
-            <div style={s.grid2eq}>
+            <div className="field-log-grid" style={s.grid2eq}>
               {/* SMART LOG FORM */}
               <div style={s.card}>
                 <div style={s.cardHeader}>
@@ -605,7 +621,7 @@ export default function Home() {
         {page==='eod'&&(
           <div>
             <div style={s.sectionTitle}>EOD Draft <span style={{fontSize:13,color:'#7A6E64',fontFamily:"'Jost',sans-serif",fontWeight:300}}>End of day report for Neel Patel</span></div>
-            <div style={s.grid2eq}>
+            <div className="field-log-grid" style={s.grid2eq}>
               <div style={s.card}>
                 <div style={s.cardHeader}><div style={s.cardTitle}>Auto-Draft</div><span style={s.cardAction} onClick={generateEOD}>Generate from Today</span></div>
                 <div style={{fontSize:13,color:'#7A6E64',lineHeight:1.7}}>Log your field visits first, then click Generate. Review, edit if needed, then copy to Outlook.</div>
@@ -652,7 +668,7 @@ export default function Home() {
       {/* ═══ OFFICE DETAIL PANEL ═══ */}
       {selectedOffice&&(
         <div style={s.modal} onClick={e=>e.target===e.currentTarget&&setSelectedOffice(null)}>
-          <div style={{...s.modalBox,width:620}}>
+          <div className="modal-box-inner" style={{...s.modalBox,width:620}}>
             <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',marginBottom:6}}>
               <div style={s.modalTitle}>{selectedOffice.name}</div>
               <span style={{cursor:'pointer',color:'#7A6E64',fontSize:20,padding:'0 4px'}} onClick={()=>setSelectedOffice(null)}>×</span>
@@ -685,7 +701,7 @@ export default function Home() {
       {/* ═══ VISIT DETAIL PANEL ═══ */}
       {selectedVisit&&(
         <div style={s.modal} onClick={e=>e.target===e.currentTarget&&setSelectedVisit(null)}>
-          <div style={{...s.modalBox,width:560}}>
+          <div className="modal-box-inner" style={{...s.modalBox,width:560}}>
             <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',marginBottom:6}}>
               <div style={s.modalTitle}>{selectedVisit.office}</div>
               <span style={{cursor:'pointer',color:'#7A6E64',fontSize:20}} onClick={()=>setSelectedVisit(null)}>×</span>
@@ -817,7 +833,7 @@ export default function Home() {
       {/* ADD LUNCH MODAL */}
       {showAddLunch&&(
         <div style={s.modal} onClick={e=>e.target===e.currentTarget&&setShowAddLunch(false)}>
-          <div style={{...s.modalBox,width:560}}>
+          <div className="modal-box-inner" style={{...s.modalBox,width:560}}>
             <div style={{...s.modalTitle,marginBottom:16}}>Add Lunch</div>
             <label style={s.label}>Office Name</label>
             <input style={s.input} value={newLunch.office} onChange={e=>setNewLunch({...newLunch,office:e.target.value})} placeholder="Practice name"/>
@@ -853,7 +869,7 @@ export default function Home() {
       {/* EDIT LUNCH MODAL */}
       {editLunch&&(
         <div style={s.modal} onClick={e=>e.target===e.currentTarget&&setEditLunch(null)}>
-          <div style={{...s.modalBox,width:560}}>
+          <div className="modal-box-inner" style={{...s.modalBox,width:560}}>
             <div style={{...s.modalTitle,marginBottom:16}}>Edit — {editLunch.office}</div>
             <label style={s.label}>Office Name</label>
             <input style={s.input} value={editLunch.office} onChange={e=>setEditLunch({...editLunch,office:e.target.value})}/>
@@ -889,7 +905,71 @@ export default function Home() {
         </div>
       )}
 
-      <style>{`@keyframes pulse{0%,100%{opacity:1}50%{opacity:0.35}}*::-webkit-scrollbar{width:5px}*::-webkit-scrollbar-thumb{background:#DDD5C4;border-radius:3px}`}</style>
+      {/* MOBILE FLOATING LOG BUTTON */}
+      <button className="mobile-log-btn" onClick={()=>setPage('fieldlog')} title="Log a Visit">+</button>
+
+      <style>{`
+        @keyframes pulse{0%,100%{opacity:1}50%{opacity:0.35}}
+        *::-webkit-scrollbar{width:5px}
+        *::-webkit-scrollbar-thumb{background:#DDD5C4;border-radius:3px}
+
+        /* MOBILE RESPONSIVE */
+        @media(max-width:768px){
+          .desktop-nav{display:none!important;}
+          .mobile-nav{display:flex!important;}
+          .main-content{padding:16px!important;}
+          .grid-2col{grid-template-columns:1fr!important;}
+          .grid-main{grid-template-columns:1fr!important;}
+          .topbar-inner{padding:0 16px!important;}
+          .office-table-row{grid-template-columns:1fr 70px 80px!important;}
+          .office-table-row .col-contact,.office-table-row .col-next{display:none!important;}
+          .vault-row-inner{grid-template-columns:100px 1fr!important;}
+          .vault-row-inner .col-gift,.vault-row-inner .col-next{display:none!important;}
+          .lunch-row-inner{grid-template-columns:1fr 80px 90px!important;}
+          .lunch-row-inner .col-doctor,.lunch-row-inner .col-restaurant,.lunch-row-inner .col-notes{display:none!important;}
+          .stat-row-inner{flex-wrap:wrap!important;}
+          .stat-pill-inner{min-width:calc(50% - 7px)!important;}
+          .quick-note-bar{grid-template-columns:1fr!important;gap:8px!important;}
+          .quick-note-bar .qn-type{display:none!important;}
+          .section-title-inner{font-size:20px!important;}
+          .modal-box-inner{width:95vw!important;padding:20px!important;}
+          .field-log-grid{grid-template-columns:1fr!important;}
+          .city-table-header{display:none!important;}
+          .city-office-row{grid-template-columns:1fr 70px 80px!important;}
+        }
+
+        @media(min-width:769px){
+          .mobile-nav{display:none!important;}
+          .desktop-nav{display:flex!important;}
+        }
+
+        /* MOBILE TAP TARGETS */
+        @media(max-width:768px){
+          button{min-height:44px!important;}
+          select,input{min-height:44px!important;font-size:16px!important;}
+          .mobile-log-btn{
+            position:fixed!important;
+            bottom:80px!important;
+            right:20px!important;
+            width:58px!important;
+            height:58px!important;
+            border-radius:50%!important;
+            background:#A07840!important;
+            color:white!important;
+            font-size:28px!important;
+            display:flex!important;
+            align-items:center!important;
+            justify-content:center!important;
+            box-shadow:0 4px 16px rgba(160,120,64,0.4)!important;
+            cursor:pointer!important;
+            border:none!important;
+            z-index:150!important;
+          }
+        }
+        @media(min-width:769px){
+          .mobile-log-btn{display:none!important;}
+        }
+      `}</style>
     </div>
   );
 }
