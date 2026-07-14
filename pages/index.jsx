@@ -278,7 +278,7 @@ export default function Home() {
       <div className="topbar-inner" style={s.topbar}>
         <div style={s.logo}>MULE <span style={{color:GOLD}}>HQ</span></div>
         <div style={{display:'flex',alignItems:'center',gap:24}}>
-          <span style={{fontSize:11,color:'#7A6E64'}}><span style={{display:'inline-block',width:6,height:6,borderRadius:'50%',background:SAGE,marginRight:5}}></span>Live</span>
+          <span style={{fontSize:11,color:'#7A6E64'}}><span style={{display:'inline-block',width:6,height:6,borderRadius:'50%',background:SAGE,marginRight:5}}></span>Synced</span>
           <span style={{fontSize:11,color:'#7A6E64',fontFamily:'monospace'}}>{dateStr}</span>
           {alertOn&&<span style={{background:HOT,color:'white',fontSize:10,fontWeight:600,padding:'3px 10px',borderRadius:20,cursor:'pointer'}} onClick={()=>setAlertOn(false)}>New Referrer Alert</span>}
         </div>
