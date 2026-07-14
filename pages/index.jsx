@@ -58,6 +58,8 @@ export default function Home() {
   const [eodDraft,setEodDraft]=useState('');
   const [showAddOffice,setShowAddOffice]=useState(false);
   const [showAddSupply,setShowAddSupply]=useState(false);
+  const [lunches,setLunches]=useState([]);
+  const [selectedLunch,setSelectedLunch]=useState(null);
   const [newOffice,setNewOffice]=useState({name:'',doctor:'',city:'Flower Mound',tier:'warm',address:'',contact:'',notes:''});
   const [newSupply,setNewSupply]=useState({name:'',count:0,low:5});
 
@@ -73,16 +75,18 @@ export default function Home() {
 
   async function loadAll(){
     try{
-      const [o,v,t,sp]=await Promise.all([
+      const [o,v,t,sp,lu]=await Promise.all([
         fetch('/api/offices').then(r=>r.json()),
         fetch('/api/visits').then(r=>r.json()),
         fetch('/api/tasks').then(r=>r.json()),
         fetch('/api/supplies').then(r=>r.json()),
+        fetch('/api/lunches').then(r=>r.json()),
       ]);
       setOffices(Array.isArray(o)?o:[]);
       setVisits(Array.isArray(v)?v:[]);
       setTasks(Array.isArray(t)?t:[]);
       setSupplies(Array.isArray(sp)?sp:[]);
+      setLunches(Array.isArray(lu)?lu:[]);
       // Auto generate briefing once loaded
       generateBriefing(Array.isArray(o)?o:[],Array.isArray(t)?t:[]);
     }catch(e){console.error(e);}
@@ -117,6 +121,11 @@ export default function Home() {
     setLogGift('');setLogNotes('');setLogNextAction('');setLogOffice('');
     await loadAll();
   }
+  async function updateLunch(id, updates) {
+    await fetch('/api/lunches',{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({id,...updates})});
+    await loadAll();
+  }
+
   async function generateEOD(){
     const today=new Date().toLocaleDateString();
     const todayV=visits.filter(v=>new Date(v.date).toLocaleDateString()===today);
@@ -157,8 +166,8 @@ export default function Home() {
   const daysAgo=(d)=>{if(!d)return'Never';const n=Math.floor((Date.now()-new Date(d))/864e5);return n===0?'Today':n===1?'Yesterday':`${n}d ago`;};
   const isOverdue=(d)=>!d||(Date.now()-new Date(d))>30*864e5;
 
-  const TABS=['command','offices','fieldlog','vault','eod','depot'];
-  const LABELS=['Command','Offices','Field Log','Visit Vault','EOD Draft','Supply Depot'];
+  const TABS=['command','offices','fieldlog','vault','eod','depot','lunches'];
+  const LABELS=['Command','Offices','Field Log','Visit Vault','EOD Draft','Supply Depot','Lunch Tracker'];
 
   return(
     <div style={s.body}>
@@ -576,6 +585,71 @@ export default function Home() {
           </div>
         </div>
       )}
+
+
+        {/* LUNCH TRACKER */}
+        {page==='lunches'&&(
+          <div>
+            <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:20}}>
+              <div style={s.sectionTitle}>Lunch Tracker <span style={{fontSize:13,color:'#7A6E64',fontFamily:"'Jost',sans-serif",fontWeight:300}}>Appreciation lunches</span></div>
+              <div style={{display:'flex',gap:16}}>
+                {[['Ordered',GOLD],['Pending','#9A8E82'],['To Schedule','#C4B49E'],['Delivered',SAGE]].map(([st,c])=>(
+                  <div key={st} style={{display:'flex',alignItems:'center',gap:5,fontSize:11,color:'#7A6E64'}}>
+                    <div style={{width:8,height:8,borderRadius:'50%',background:c}}></div>
+                    {st} ({lunches.filter(l=>l.status===st).length})
+                  </div>
+                ))}
+              </div>
+            </div>
+            {[
+              ['Ordered','Confirmed — confirm delivery or follow up',GOLD],
+              ['Pending','QR scanned — waiting on order submission','#9A8E82'],
+              ['To Schedule','Not yet offered — slate on next route','#C4B49E'],
+              ['Delivered','Done — relationship locked',SAGE]
+            ].map(([status,desc,color])=>{
+              const group=lunches.filter(l=>l.status===status);
+              if(!group.length) return null;
+              return(
+                <div key={status} style={{marginBottom:24}}>
+                  <div style={{display:'flex',alignItems:'center',gap:10,marginBottom:10}}>
+                    <div style={{width:10,height:10,borderRadius:'50%',background:color,flexShrink:0}}></div>
+                    <div style={{fontFamily:"'Cormorant Garamond',serif",fontSize:16,fontWeight:500}}>{status}</div>
+                    <div style={{fontSize:11,color:'#7A6E64'}}>{desc}</div>
+                    <div style={{flex:1,height:1,background:'linear-gradient(90deg,#DDD5C4,transparent)',marginLeft:4}}></div>
+                    <div style={{fontSize:11,color:'#7A6E64'}}>{group.length} offices</div>
+                  </div>
+                  <div style={{background:'#FDFCFA',border:'1px solid #DDD5C4',borderRadius:12,overflow:'hidden'}}>
+                    <div style={{display:'grid',gridTemplateColumns:'2fr 1.5fr 1fr 100px 2fr 110px',padding:'8px 16px',background:'#F5F0E8',borderBottom:'1px solid #DDD5C4',gap:12}}>
+                      {['Office','Doctor / Contact','Restaurant','Date','Notes','Action'].map(h=>(
+                        <div key={h} style={{fontSize:9,fontWeight:600,textTransform:'uppercase',letterSpacing:'0.1em',color:'#6E5F50'}}>{h}</div>
+                      ))}
+                    </div>
+                    {group.map((l,i)=>(
+                      <div key={l.id} style={{display:'grid',gridTemplateColumns:'2fr 1.5fr 1fr 100px 2fr 110px',padding:'12px 16px',background:i%2===0?'#FDFCFA':'#FAF8F5',borderBottom:i<group.length-1?'1px solid #EDE6D6':'none',borderLeft:'3px solid '+color,gap:12,alignItems:'center'}}>
+                        <div style={{fontWeight:600,fontSize:13,color:'#1A1410'}}>{l.office}</div>
+                        <div>
+                          <div style={{fontSize:12,color:'#3D3228'}}>{l.doctor||'—'}</div>
+                          <div style={{fontSize:11,color:'#7A6E64',marginTop:2}}>{l.contact||'—'}</div>
+                        </div>
+                        <div style={{fontSize:12,color:GOLD,fontWeight:l.restaurant?500:400}}>{l.restaurant||'—'}</div>
+                        <div style={{fontSize:12,color:'#3D3228',fontFamily:'monospace'}}>{l.date?new Date(l.date).toLocaleDateString('en-US',{month:'short',day:'numeric'}):'—'}</div>
+                        <div style={{fontSize:11,color:'#7A6E64',lineHeight:1.4}}>{l.notes||'—'}</div>
+                        <div style={{display:'flex',gap:4,flexWrap:'wrap'}}>
+                          {status!=='Delivered'&&(
+                            <button style={{...s.btnPrimary,...s.btnSm}} onClick={()=>updateLunch(l.id,{status:'Delivered'})}>Delivered</button>
+                          )}
+                          {(status==='To Schedule'||status==='Pending')&&(
+                            <button style={{...s.btnSecondary,...s.btnSm}} onClick={()=>updateLunch(l.id,{status:'Ordered'})}>Ordered</button>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
 
       <style>{`@keyframes pulse{0%,100%{opacity:1}50%{opacity:0.35}}*::-webkit-scrollbar{width:5px}*::-webkit-scrollbar-thumb{background:#DDD5C4;border-radius:3px}`}</style>
     </div>
