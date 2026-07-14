@@ -16,17 +16,41 @@ async function query(method, path, body) {
   return text ? JSON.parse(text) : [];
 }
 
+function mapOut(v) {
+  return {
+    id: v.id,
+    office: v.office || '',
+    doctor: v.doctor || '',
+    contact: v.contact || '',
+    gift: v.gift || '',
+    notes: v.notes || '',
+    nextAction: v.next_action || '',
+    tier: v.tier || '',
+    date: v.date || '',
+  };
+}
+
 export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   try {
     if (req.method === 'GET') {
       const data = await query('GET', 'visits?order=created_at.desc&select=*');
-      return res.status(200).json(data);
+      return res.status(200).json(data.map(mapOut));
     }
     if (req.method === 'POST') {
       const { id, ...body } = req.body;
-      const data = await query('POST', 'visits', { ...body, date: body.date || new Date().toISOString().split('T')[0] });
-      return res.status(200).json(data[0] || {});
+      const mapped = {
+        office: body.office,
+        doctor: body.doctor || '',
+        contact: body.contact || '',
+        gift: body.gift || '',
+        notes: body.notes || '',
+        next_action: body.nextAction || '',
+        tier: body.tier || 'warm',
+        date: body.date || new Date().toISOString().split('T')[0],
+      };
+      const data = await query('POST', 'visits', mapped);
+      return res.status(200).json(mapOut(data[0] || {}));
     }
   } catch (e) {
     return res.status(500).json({ error: e.message });
