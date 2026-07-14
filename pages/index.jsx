@@ -118,12 +118,19 @@ export default function Home() {
   }
 
   async function toggleTask(id,done){
-    await fetch('/api/tasks',{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({id,done:!done})});
-    await loadAll();
+    // Optimistic update - update UI immediately
+    setTasks(prev=>prev.map(t=>t.id===id?{...t,done:!done}:t));
+    try{
+      await fetch('/api/tasks',{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({id,done:!done})});
+    }catch(e){
+      // Revert on error
+      setTasks(prev=>prev.map(t=>t.id===id?{...t,done:done}:t));
+    }
   }
   async function deleteTask(id){
+    // Remove immediately from UI
+    setTasks(prev=>prev.filter(t=>t.id!==id));
     await fetch('/api/tasks',{method:'DELETE',headers:{'Content-Type':'application/json'},body:JSON.stringify({id})});
-    await loadAll();
   }
   async function quickAddTask(){
     if(!quickTask.trim())return;
@@ -561,16 +568,15 @@ export default function Home() {
                 </select>
 
                 {/* AUTO-FILLED FROM OFFICE PROFILE */}
-                {logOffice&&(()=>{
-                  const found=offices.find(o=>o.name===logOffice);
-                  return found?(
-                    <div style={{background:'rgba(92,127,89,0.08)',border:'1px solid rgba(92,127,89,0.2)',borderRadius:8,padding:'10px 14px',marginBottom:12,fontSize:12,color:'#5C7F59'}}>
-                      Last visit: <strong>{found.lastVisit?`${Math.floor((Date.now()-new Date(found.lastVisit))/864e5)}d ago`:'Never'}</strong>
-                      {found.doctor&&<> · {found.doctor}</>}
-                      {found.gift&&<> · Last drop: {found.gift}</>}
-                    </div>
-                  ):null;
-                })()}
+                {logOffice&&offices.find(o=>o.name===logOffice)&&(
+                  <div style={{background:'rgba(92,127,89,0.08)',border:'1px solid rgba(92,127,89,0.2)',borderRadius:8,padding:'10px 14px',marginBottom:12,fontSize:12,color:'#5C7F59'}}>
+                    {(()=>{const f=offices.find(o=>o.name===logOffice);return(<>
+                      Last visit: <strong>{f.lastVisit?`${Math.floor((Date.now()-new Date(f.lastVisit))/864e5)}d ago`:'Never'}</strong>
+                      {f.doctor&&<span> · {f.doctor}</span>}
+                      {f.gift&&<span> · Last drop: {f.gift}</span>}
+                    </>);})()}
+                  </div>
+                )}
 
                 {/* WHO YOU MET */}
                 <label style={s.label}>Who You Spoke With</label>
