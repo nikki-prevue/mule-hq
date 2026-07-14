@@ -61,6 +61,10 @@ export default function Home() {
   const [logLunchDate,setLogLunchDate]=useState('');
   const [logLunchNotes,setLogLunchNotes]=useState('');
   const [logAddTask,setLogAddTask]=useState(false);
+  const [quickNoteOffice,setQuickNoteOffice]=useState('');
+  const [quickNoteType,setQuickNoteType]=useState('Call');
+  const [quickNoteText,setQuickNoteText]=useState('');
+  const [quickNoteSaving,setQuickNoteSaving]=useState(false);
   const [eodDraft,setEodDraft]=useState('');
   const [showAddOffice,setShowAddOffice]=useState(false);
   const [showAddSupply,setShowAddSupply]=useState(false);
@@ -407,6 +411,40 @@ export default function Home() {
               <div style={s.sectionTitle}>Field Log <span style={{fontSize:13,color:'#7A6E64',fontFamily:"'Jost',sans-serif",fontWeight:300}}>One entry. Updates everywhere.</span></div>
               <span style={s.cardAction} onClick={()=>{setPage('eod');generateEOD();}}>Push to EOD</span>
             </div>
+            {/* QUICK NOTE BANNER */}
+            <div style={{background:'#FDFCFA',border:'1px solid #DDD5C4',borderRadius:12,padding:'18px 22px',marginBottom:20}}>
+              <div style={{fontSize:10,fontWeight:600,textTransform:'uppercase',letterSpacing:'0.12em',color:'#6E5F50',marginBottom:12}}>Quick Note — Phone Call, Email, Text, Any Interaction</div>
+              <div style={{display:'grid',gridTemplateColumns:'2fr 140px 1fr auto',gap:10,alignItems:'center'}}>
+                <select style={{...s.select,marginBottom:0}} value={quickNoteOffice} onChange={e=>setQuickNoteOffice(e.target.value)}>
+                  <option value="">Select office...</option>
+                  {offices.filter(o=>o.status!=='Do Not Target').map(o=><option key={o.id} value={o.name}>{o.name}</option>)}
+                </select>
+                <select style={{...s.select,marginBottom:0}} value={quickNoteType} onChange={e=>setQuickNoteType(e.target.value)}>
+                  <option value="Call">Phone Call</option>
+                  <option value="Email">Email</option>
+                  <option value="Text">Text</option>
+                  <option value="Lunch Coord">Lunch Coord</option>
+                  <option value="Dr. Patel Request">Dr. Patel Request</option>
+                  <option value="Other">Other</option>
+                </select>
+                <input
+                  style={{...s.input,marginBottom:0}}
+                  value={quickNoteText}
+                  onChange={e=>setQuickNoteText(e.target.value)}
+                  placeholder="e.g. Nicole called to confirm Olive Garden lunch for 27 staff, 7/15 at 12pm..."
+                  onKeyDown={e=>e.key==='Enter'&&saveQuickNote()}
+                />
+                <button
+                  style={{...s.btnPrimary,padding:'9px 20px',whiteSpace:'nowrap',opacity:quickNoteSaving?0.7:1}}
+                  onClick={saveQuickNote}
+                  disabled={quickNoteSaving}
+                >
+                  {quickNoteSaving?'Saving...':'Save Note'}
+                </button>
+              </div>
+              <div style={{fontSize:11,color:'#7A6E64',marginTop:8}}>Auto-stamps date & time. Saves to office profile and Visit Vault.</div>
+            </div>
+
             <div style={s.grid2eq}>
               {/* SMART LOG FORM */}
               <div style={s.card}>
