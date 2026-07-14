@@ -1,23 +1,46 @@
-const SUPPLIES = [
-  { id: '1', name: 'Snack Boxes', count: 12, low: 5 },
-  { id: '2', name: 'Referral Pads', count: 8, low: 5 },
-  { id: '3', name: 'Business Cards (Dr. Patel)', count: 50, low: 10 },
-  { id: '4', name: 'Insurance Info Sheets', count: 20, low: 5 },
-  { id: '5', name: 'Dirty Soda Boxes', count: 6, low: 3 },
-  { id: '6', name: "Tiff's Treats Boxes", count: 4, low: 2 },
-  { id: '7', name: 'Veggie Trays', count: 5, low: 2 },
-];
-export default function handler(req, res) {
+const SUPABASE_URL = process.env.SUPABASE_URL;
+const SUPABASE_KEY = process.env.SUPABASE_SERVICE_KEY;
+
+async function query(method, path, body) {
+  const res = await fetch(`${SUPABASE_URL}/rest/v1/${path}`, {
+    method,
+    headers: {
+      'apikey': SUPABASE_KEY,
+      'Authorization': `Bearer ${SUPABASE_KEY}`,
+      'Content-Type': 'application/json',
+      'Prefer': 'return=representation'
+    },
+    body: body ? JSON.stringify(body) : undefined
+  });
+  const text = await res.text();
+  return text ? JSON.parse(text) : [];
+}
+
+export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
-  if (req.method === 'GET') return res.status(200).json(SUPPLIES);
-  if (req.method === 'POST') {
-    const s = { ...req.body, id: Date.now().toString() };
-    SUPPLIES.push(s);
-    return res.status(200).json(s);
-  }
-  if (req.method === 'PATCH') {
-    const idx = SUPPLIES.findIndex(s => s.id === req.body.id);
-    if (idx >= 0) SUPPLIES[idx].count = req.body.count;
-    return res.status(200).json(SUPPLIES[idx] || {});
+  try {
+    if (req.method === 'GET') {
+      const data = await query('GET', 'supplies?order=name.asc&select=*');
+      return res.status(200).json(data);
+    }
+    if (req.method === 'POST') {
+      const { id, ...body } = req.body;
+      const data = await query('POST', 'supplies', body);
+      return res.status(200).json(data[0] || {});
+    }
+    if (req.method === 'PATCH') {
+      const { id, ...updates } = req.body;
+      // map count field
+      const mapped = { ...updates };
+      if ('count' in mapped) mapped.count = mapped.count;
+      const data = await query('PATCH', `supplies?id=eq.${id}`, mapped);
+      return res.status(200).json(data[0] || {});
+    }
+    if (req.method === 'DELETE') {
+      await query('DELETE', `supplies?id=eq.${req.body.id}`);
+      return res.status(200).json({ success: true });
+    }
+  } catch (e) {
+    return res.status(500).json({ error: e.message });
   }
 }
