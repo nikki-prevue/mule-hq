@@ -71,6 +71,8 @@ export default function Home() {
   const [routeSearch,setRouteSearch]=useState('');
   const [smartPlan,setSmartPlan]=useState(null);
   const [planLoading,setPlanLoading]=useState(false);
+  const [taskNoteModal,setTaskNoteModal]=useState(null);
+  const [taskNoteText,setTaskNoteText]=useState('');
   const [showRouteSearch,setShowRouteSearch]=useState(false);
   const [lunches,setLunches]=useState([]);
   const [selectedLunch,setSelectedLunch]=useState(null);
@@ -150,35 +152,90 @@ export default function Home() {
   async function generateSmartPlan(){
     setPlanLoading(true);
     try{
-      // Score offices by priority
       const now = Date.now();
+      const dow = new Date().getDay(); // 0=Sun,1=Mon,2=Tue,3=Wed,4=Thu,5=Fri
+
+      // Friday = admin day, no route
+      if(dow===5){
+        setSmartPlan([]);
+        setPlanLoading(false);
+        return;
+      }
+
+      // Get pending action items from tasks
+      const pendingActions = tasks.filter(t=>!t.done).map(t=>t.text.toLowerCase());
+
       const scored = offices
-        .filter(o=>o.status!=='Do Not Target' && o.city!=='Other')
+        .filter(o=>o.status!=='Do Not Target')
         .map(o=>{
-          const daysSince = o.lastVisit ? Math.floor((now-new Date(o.lastVisit))/864e5) : 60;
-          const tierScore = o.tier==='hot'?30:o.tier==='warm'?15:5;
-          const overdueScore = daysSince>30?25:daysSince>20?10:0;
-          const referralScore = (o.referralVolume||0)*0.5;
-          const topScore = o.topReferrer?20:0;
-          const hasAction = o.nextAction&&o.nextAction!=='Follow up'?10:0;
-          return {...o,score:tierScore+overdueScore+referralScore+topScore+hasAction,daysSince};
+          const daysSince = o.lastVisit ? Math.floor((now-new Date(o.lastVisit))/864e5) : 90;
+          
+          // RULE 1: Too recent — visited within 14 days AND no open action = skip
+          const hasOpenAction = (
+            (o.nextAction && o.nextAction!=='Follow up' && o.nextAction!=='') ||
+            lunches.some(l=>l.office===o.name && (l.status==='Pending'||l.status==='Ordered')) ||
+            pendingActions.some(a=>a.includes(o.name.toLowerCase().slice(0,10)))
+          );
+          if(daysSince<14 && !hasOpenAction) return null;
+
+          // RULE 2: Score by urgency
+          let score = 0;
+
+          // Time-based scoring
+          if(daysSince>=30) score+=40;       // Overdue — always include
+          else if(daysSince>=23) score+=25;  // Due — include
+          else if(daysSince>=15) score+=10;  // Due soon — include if hot/top
+          else if(hasOpenAction) score+=35;  // Recent but has open action — include
+
+          // Tier scoring
+          if(o.tier==='hot') score+=25;
+          else if(o.tier==='warm') score+=10;
+
+          // Top referrer bonus
+          if(o.topReferrer) score+=20;
+          if((o.referralVolume||0)>20) score+=15;
+
+          // Never visited bonus
+          if(!o.lastVisit) score+=30;
+
+          // Open action bonus
+          if(hasOpenAction) score+=20;
+
+          // Wednesday: lunch offices get boosted
+          if(dow===3){
+            const hasLunch = lunches.some(l=>l.office===o.name&&(l.status==='Ordered'||l.status==='Pending'));
+            if(hasLunch) score+=50;
+          }
+
+          // Exclude Other city unless has very high score
+          if(o.city==='Other' && score<60) return null;
+
+          return {...o, score, daysSince, hasOpenAction};
         })
+        .filter(Boolean)
         .sort((a,b)=>b.score-a.score);
 
-      // Group by city, take top offices per city
-      const cities = ['Flower Mound','Highland Village','Lewisville'];
-      const plan = [];
-      
-      // Take top 3 from primary city, 2-3 from others
-      const fm = scored.filter(o=>o.city==='Flower Mound').slice(0,4);
-      const hv = scored.filter(o=>o.city==='Highland Village').slice(0,2);
-      const lv = scored.filter(o=>o.city==='Lewisville').slice(0,2);
-      
-      // Geo-cluster: FM first, then HV (close to FM), then LV
-      const suggested = [...fm,...hv,...lv].slice(0,8).map((o,i)=>({
-        ...o,order:i+1,done:false
-      }));
-      
+      // Geo-cluster — group by city in logical drive order
+      // FM and HV are close, LV is separate
+      const mustVisit = scored.filter(o=>o.hasOpenAction).slice(0,3);
+      const mustIds = new Set(mustVisit.map(o=>o.id));
+      const remaining = scored.filter(o=>!mustIds.has(o.id));
+
+      // Fill to 7 stops with geo-clustering
+      const fm = remaining.filter(o=>o.city==='Flower Mound');
+      const hv = remaining.filter(o=>o.city==='Highland Village');
+      const lv = remaining.filter(o=>o.city==='Lewisville');
+      const other = remaining.filter(o=>o.city==='Other');
+
+      // Determine primary cluster based on day
+      let clustered = [];
+      if(dow===1||dow===3) clustered=[...fm.slice(0,3),...hv.slice(0,2),...lv.slice(0,1)];
+      else if(dow===2) clustered=[...lv.slice(0,3),...hv.slice(0,2),...fm.slice(0,1)];
+      else clustered=[...fm.slice(0,2),...hv.slice(0,2),...lv.slice(0,2)];
+
+      const combined = [...mustVisit,...clustered.filter(o=>!mustIds.has(o.id))].slice(0,7);
+      const suggested = combined.map((o,i)=>({...o,order:i+1,done:false,stopNote:''}));
+
       setSmartPlan(suggested);
     }catch(e){console.error('smart plan error:',e);}
     setPlanLoading(false);
@@ -186,9 +243,28 @@ export default function Home() {
 
   function acceptSmartPlan(){
     if(smartPlan){
-      setRoute(smartPlan);
+      setRoute(smartPlan.map(o=>({...o,stopNote:''})));
       setSmartPlan(null);
     }
+  }
+
+  async function saveTaskNote(){
+    if(!taskNoteModal||!taskNoteText.trim()) return;
+    const timestamp=new Date().toLocaleString('en-US',{month:'short',day:'numeric',hour:'numeric',minute:'2-digit',hour12:true});
+    const noteEntry=`[${timestamp}] ${taskNoteText.trim()}`;
+    const updatedText=taskNoteModal.notes
+      ? taskNoteModal.text+'||'+taskNoteModal.notes+'||'+noteEntry
+      : taskNoteModal.text+'||'+noteEntry;
+    // Store notes as appended text with separator
+    await fetch('/api/tasks',{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({
+      id:taskNoteModal.id,
+      text:taskNoteModal.text,
+      notes:(taskNoteModal.notes?taskNoteModal.notes+'
+':'')+noteEntry
+    })});
+    setTaskNoteText('');
+    setTaskNoteModal(null);
+    await loadAll();
   }
 
   async function saveQuickNote(){
@@ -481,7 +557,8 @@ export default function Home() {
                           {/* OFFICE INFO */}
                           <div style={{flex:1,minWidth:0}}>
                             <div style={{fontSize:13,fontWeight:600,color:stop.done?'#9A8E82':'#1A1410',textDecoration:stop.done?'line-through':'none',whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{stop.name}</div>
-                            <div style={{fontSize:11,color:'#7A6E64'}}>{stop.city}{stop.address?` · ${stop.address}`:''}</div>
+                            <div style={{fontSize:11,color:'#7A6E64'}}>{stop.city}{stop.address?' · '+stop.address:''}</div>
+                            {stop.stopNote&&<div style={{fontSize:11,color:GOLD,marginTop:2,fontStyle:'italic'}}>{stop.stopNote}</div>}
                           </div>
                           {/* ACTIONS */}
                           <div style={{display:'flex',gap:6,flexShrink:0}}>
@@ -513,8 +590,14 @@ export default function Home() {
                   {tasks.slice(0,10).map(t=>(
                     <div key={t.id} style={{display:'flex',alignItems:'flex-start',gap:10,padding:'9px 0',borderBottom:'1px solid #EDE6D6',opacity:t.done?0.5:1}}>
                       <div onClick={()=>toggleTask(t.id,t.done)} style={{width:18,height:18,border:`2px solid ${t.done?SAGE:'#C4B49E'}`,borderRadius:4,cursor:'pointer',flexShrink:0,marginTop:1,background:t.done?SAGE:'transparent',display:'flex',alignItems:'center',justifyContent:'center',fontSize:11,color:'white',transition:'all 0.15s'}}>{t.done?'✓':''}</div>
-                      <div style={{flex:1,fontSize:13,color:t.done?'#9A8E82':'#3D3228',textDecoration:t.done?'line-through':'none',lineHeight:1.4}}>{t.text}</div>
+                      <div style={{flex:1,minWidth:0}}>
+                        <div style={{fontSize:13,color:t.done?'#9A8E82':'#3D3228',textDecoration:t.done?'line-through':'none',lineHeight:1.4}}>{t.text}</div>
+                        {t.notes&&t.notes.split('\n').map((note,ni)=>(
+                          <div key={ni} style={{fontSize:11,color:'#9A8E82',marginTop:3,paddingLeft:8,borderLeft:'2px solid #EDE6D6',lineHeight:1.4}}>{note}</div>
+                        ))}
+                      </div>
                       <div style={{fontSize:9,fontWeight:700,padding:'2px 8px',borderRadius:20,textTransform:'uppercase',background:t.priority==='urgent'?'rgba(193,123,90,0.12)':'rgba(160,120,64,0.14)',color:t.priority==='urgent'?HOT:GOLD}}>{t.priority}</div>
+                      <span style={{cursor:'pointer',color:'#A07840',fontSize:11,fontWeight:600,padding:'2px 6px',borderRadius:4,border:'1px solid #DDD5C4'}} onClick={()=>{setTaskNoteModal(t);setTaskNoteText('');}}>+ Note</span>
                       <span style={{cursor:'pointer',color:'#7A6E64',fontSize:16}} onClick={()=>deleteTask(t.id)}>×</span>
                     </div>
                   ))}
@@ -1119,6 +1202,37 @@ export default function Home() {
 
       {/* MOBILE FLOATING LOG BUTTON */}
       {page!=="fieldlog"&&<button className="mobile-log-btn" onClick={()=>setPage('fieldlog')} title="Log a Visit" style={{position:"fixed",bottom:80,right:20,width:58,height:58,borderRadius:"50%",background:GOLD,color:"white",fontSize:28,display:"flex",alignItems:"center",justifyContent:"center",boxShadow:"0 4px 16px rgba(160,120,64,0.4)",cursor:"pointer",border:"none",zIndex:150}}>+</button>}
+
+
+      {/* TASK NOTE MODAL */}
+      {taskNoteModal&&(
+        <div style={s.modal} onClick={e=>e.target===e.currentTarget&&setTaskNoteModal(null)}>
+          <div style={{...s.modalBox,width:500}}>
+            <div style={{...s.modalTitle,marginBottom:4}}>Add Note</div>
+            <div style={{fontSize:12,color:'#7A6E64',marginBottom:16}}>{taskNoteModal.text}</div>
+            {taskNoteModal.notes&&(
+              <div style={{background:'#FAFAF7',border:'1px solid #EDE6D6',borderRadius:8,padding:12,marginBottom:16}}>
+                <div style={{fontSize:10,fontWeight:600,textTransform:'uppercase',letterSpacing:'0.08em',color:'#6E5F50',marginBottom:8}}>Call Log</div>
+                {taskNoteModal.notes.split('\n').map((note,i)=>(
+                  <div key={i} style={{fontSize:12,color:'#7A6E64',padding:'5px 0',borderBottom:'1px solid #EDE6D6',lineHeight:1.5}}>{note}</div>
+                ))}
+              </div>
+            )}
+            <label style={s.label}>New Note</label>
+            <textarea
+              style={{...s.textarea,minHeight:80}}
+              value={taskNoteText}
+              onChange={e=>setTaskNoteText(e.target.value)}
+              placeholder="e.g. Called 7/15 — office manager out, try again next week. Or: Stopped by — Dr. Mendu in with patient, left card..."
+              autoFocus
+            />
+            <div style={{display:'flex',gap:10}}>
+              <button style={s.btnPrimary} onClick={saveTaskNote}>Save Note</button>
+              <button style={s.btnSecondary} onClick={()=>setTaskNoteModal(null)}>Cancel</button>
+            </div>
+          </div>
+        </div>
+      )}
 
       <style>{`
         @keyframes pulse{0%,100%{opacity:1}50%{opacity:0.35}}
