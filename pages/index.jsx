@@ -173,7 +173,7 @@ export default function Home() {
           
           // RULE 1: Too recent — visited within 14 days AND no open action = skip
           // REAL action triggers only — generic "Follow up" does NOT count
-          const GENERIC_ACTIONS = ['follow up','slate appreciation','follow-up','']);
+          const GENERIC_ACTIONS = ['follow up','slate appreciation','follow-up',''];
           const hasSpecificAction = o.nextAction && 
             !GENERIC_ACTIONS.some(g=>o.nextAction.toLowerCase().startsWith(g)) &&
             o.nextAction.trim()!=='';
