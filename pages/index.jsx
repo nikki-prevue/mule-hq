@@ -172,21 +172,21 @@ export default function Home() {
           const daysSince = o.lastVisit ? Math.floor((now-new Date(o.lastVisit))/864e5) : 90;
           
           // RULE 1: Too recent — visited within 14 days AND no open action = skip
-          // REAL action triggers only — generic "Follow up" does NOT count
-          const GENERIC_ACTIONS = ['follow up','slate appreciation','follow-up',''];
-          const hasSpecificAction = o.nextAction && 
-            !GENERIC_ACTIONS.some(g=>o.nextAction.toLowerCase().startsWith(g)) &&
-            o.nextAction.trim()!=='';
-          const hasPendingLunch = lunches.some(l=>
-            l.office===o.name && (l.status==='Pending'||l.status==='Ordered')
+          // Only override 14-day rule for specific field actions
+          // Drop-backs (ref pads owed) or explicit task with office name
+          const hasDropBack = o.nextAction && (
+            o.nextAction.toLowerCase().includes('drop ref') ||
+            o.nextAction.toLowerCase().includes('referral pads') ||
+            o.nextAction.toLowerCase().includes('drop-back') ||
+            o.nextAction.toLowerCase().includes('owed')
           );
           const hasTaskAction = pendingActions.some(a=>
             a.includes(o.name.toLowerCase().slice(0,8)) &&
-            (a.includes('drop')||a.includes('confirm')||a.includes('lock')||a.includes('call'))
+            (a.includes('drop')||a.includes('confirm')||a.includes('call'))
           );
-          const hasOpenAction = hasSpecificAction || hasPendingLunch || hasTaskAction;
+          const hasOpenAction = hasDropBack || hasTaskAction;
 
-          // HARD RULE: Skip if visited within 14 days AND no real action needed
+          // HARD RULE: Skip if visited within 14 days AND no real field action needed
           if(daysSince<14 && !hasOpenAction) return null;
 
           // RULE 2: Score by urgency
@@ -212,11 +212,7 @@ export default function Home() {
           // Open action bonus
           if(hasOpenAction) score+=20;
 
-          // Wednesday: lunch offices get boosted
-          if(dow===3){
-            const hasLunch = lunches.some(l=>l.office===o.name&&(l.status==='Ordered'||l.status==='Pending'));
-            if(hasLunch) score+=50;
-          }
+          // Wednesday: no special lunch logic — Nikki decides lunches herself
 
           // Exclude Other city unless has very high score
           if(o.city==='Other' && score<60) return null;
