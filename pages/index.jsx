@@ -513,8 +513,8 @@ export default function Home() {
                     <div style={{display:'flex',gap:10,alignItems:'center'}}>
                       {route.length>0&&(
                         <span style={s.cardAction} onClick={()=>{
-                          const stops=route.sort((a,b)=>a.order-b.order).map(s=>encodeURIComponent((s.address||s.name)+' '+(s.city||'')+' TX'));
-                          window.open(`https://www.google.com/maps/dir/${stops.join('/')}+`,'_blank');
+                          const stops=route.sort((a,b)=>a.order-b.order).map(s=>encodeURIComponent(s.address?s.address+' '+s.city+' TX':s.name+' '+s.city+' TX'));
+                          window.open(`https://www.google.com/maps/dir/${stops.join('/')}`,'_blank');
                         }}>Google Maps</span>
                       )}
                       <span style={s.cardAction} onClick={generateSmartPlan}>{planLoading?'Planning...':'Smart Plan'}</span>
@@ -702,7 +702,7 @@ export default function Home() {
                               <span style={{cursor:i===route.length-1?'default':'pointer',color:i===route.length-1?'#EDE6D6':'#9A8E82',fontSize:11,lineHeight:1,userSelect:'none'}} onClick={()=>{if(i===route.length-1)return;const r=[...route];[r[i],r[i+1]]=[r[i+1],r[i]];updateRoute(r.map((s,idx)=>({...s,order:idx+1})));}}>▼</span>
                             </div>
                             {stop.address&&(
-                              <button style={{...s.btnSecondary,...s.btnSm,padding:'5px 10px'}} onClick={()=>window.open(`https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent((stop.address||stop.name)+' '+(stop.city||'')+' TX')}`,'_blank')}>Nav</button>
+                              <button style={{...s.btnSecondary,...s.btnSm,padding:'5px 10px'}} onClick={()=>window.open(`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent((stop.address||stop.name)+' '+(stop.city||'')+' TX')}`,'_blank')}>Nav</button>
                             )}
                             <button style={{...s.btnSecondary,...s.btnSm,background:stop.done?'rgba(92,127,89,0.1)':undefined,color:stop.done?SAGE:undefined}} onClick={()=>updateRoute(route.map((r,ri)=>ri===i?{...r,done:!r.done}:r))}>{stop.done?'Undo':'Done'}</button>
                             <span style={{cursor:'pointer',color:'#C4B49E',fontSize:18,lineHeight:1,alignSelf:'center'}} onClick={()=>updateRoute(route.filter((_,ri)=>ri!==i))}>×</span>
@@ -713,8 +713,8 @@ export default function Home() {
                       <div style={{marginTop:12,padding:'10px 14px',background:'#F5F0E8',borderRadius:8,display:'flex',justifyContent:'space-between',alignItems:'center'}}>
                         <div style={{fontSize:12,color:'#7A6E64'}}>{route.filter(s=>s.done).length} of {route.length} completed</div>
                         <button style={{...s.btnPrimary,...s.btnSm}} onClick={()=>{
-                          const stops=route.sort((a,b)=>a.order-b.order).map(s=>encodeURIComponent((s.address||s.name)+' '+(s.city||'')+' TX'));
-                          window.open(`https://www.google.com/maps/dir/${stops.join('/')}+`,'_blank');
+                          const stops=route.sort((a,b)=>a.order-b.order).map(s=>encodeURIComponent(s.address?s.address+' '+s.city+' TX':s.name+' '+s.city+' TX'));
+                          window.open(`https://www.google.com/maps/dir/${stops.join('/')}`,'_blank');
                         }}>Full Route in Maps</button>
                       </div>
                     </div>
