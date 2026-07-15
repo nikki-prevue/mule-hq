@@ -514,7 +514,17 @@ export default function Home() {
                       {route.length>0&&(
                         <span style={s.cardAction} onClick={()=>{
                           const stops=route.sort((a,b)=>a.order-b.order).map(s=>encodeURIComponent(s.address?s.address+' '+s.city+' TX':s.name+' '+s.city+' TX'));
-                          window.open(`https://www.google.com/maps/dir/${stops.join('/')}`,'_blank');
+                          (()=>{
+                          if(stops.length===1){
+                            window.open(`https://www.google.com/maps/search/?api=1&query=${stops[0]}`,'_blank');
+                          } else {
+                            const origin=stops[0];
+                            const dest=stops[stops.length-1];
+                            const wpts=stops.slice(1,-1).join('|');
+                            const url=`https://www.google.com/maps/dir/?api=1&origin=${origin}&destination=${dest}${wpts?'&waypoints='+wpts:''}&travelmode=driving`;
+                            window.open(url,'_blank');
+                          }
+                        })()
                         }}>Google Maps</span>
                       )}
                       <span style={s.cardAction} onClick={generateSmartPlan}>{planLoading?'Planning...':'Smart Plan'}</span>
@@ -714,7 +724,17 @@ export default function Home() {
                         <div style={{fontSize:12,color:'#7A6E64'}}>{route.filter(s=>s.done).length} of {route.length} completed</div>
                         <button style={{...s.btnPrimary,...s.btnSm}} onClick={()=>{
                           const stops=route.sort((a,b)=>a.order-b.order).map(s=>encodeURIComponent(s.address?s.address+' '+s.city+' TX':s.name+' '+s.city+' TX'));
-                          window.open(`https://www.google.com/maps/dir/${stops.join('/')}`,'_blank');
+                          (()=>{
+                          if(stops.length===1){
+                            window.open(`https://www.google.com/maps/search/?api=1&query=${stops[0]}`,'_blank');
+                          } else {
+                            const origin=stops[0];
+                            const dest=stops[stops.length-1];
+                            const wpts=stops.slice(1,-1).join('|');
+                            const url=`https://www.google.com/maps/dir/?api=1&origin=${origin}&destination=${dest}${wpts?'&waypoints='+wpts:''}&travelmode=driving`;
+                            window.open(url,'_blank');
+                          }
+                        })()
                         }}>Full Route in Maps</button>
                       </div>
                     </div>
