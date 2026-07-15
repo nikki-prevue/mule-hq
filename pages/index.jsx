@@ -69,6 +69,8 @@ export default function Home() {
   const [showAddOffice,setShowAddOffice]=useState(false);
   const [showAddSupply,setShowAddSupply]=useState(false);
   const [routeSearch,setRouteSearch]=useState('');
+  const [smartPlan,setSmartPlan]=useState(null);
+  const [planLoading,setPlanLoading]=useState(false);
   const [showRouteSearch,setShowRouteSearch]=useState(false);
   const [lunches,setLunches]=useState([]);
   const [selectedLunch,setSelectedLunch]=useState(null);
@@ -144,6 +146,50 @@ export default function Home() {
     await loadAll();
   }
 
+
+  async function generateSmartPlan(){
+    setPlanLoading(true);
+    try{
+      // Score offices by priority
+      const now = Date.now();
+      const scored = offices
+        .filter(o=>o.status!=='Do Not Target' && o.city!=='Other')
+        .map(o=>{
+          const daysSince = o.lastVisit ? Math.floor((now-new Date(o.lastVisit))/864e5) : 60;
+          const tierScore = o.tier==='hot'?30:o.tier==='warm'?15:5;
+          const overdueScore = daysSince>30?25:daysSince>20?10:0;
+          const referralScore = (o.referralVolume||0)*0.5;
+          const topScore = o.topReferrer?20:0;
+          const hasAction = o.nextAction&&o.nextAction!=='Follow up'?10:0;
+          return {...o,score:tierScore+overdueScore+referralScore+topScore+hasAction,daysSince};
+        })
+        .sort((a,b)=>b.score-a.score);
+
+      // Group by city, take top offices per city
+      const cities = ['Flower Mound','Highland Village','Lewisville'];
+      const plan = [];
+      
+      // Take top 3 from primary city, 2-3 from others
+      const fm = scored.filter(o=>o.city==='Flower Mound').slice(0,4);
+      const hv = scored.filter(o=>o.city==='Highland Village').slice(0,2);
+      const lv = scored.filter(o=>o.city==='Lewisville').slice(0,2);
+      
+      // Geo-cluster: FM first, then HV (close to FM), then LV
+      const suggested = [...fm,...hv,...lv].slice(0,8).map((o,i)=>({
+        ...o,order:i+1,done:false
+      }));
+      
+      setSmartPlan(suggested);
+    }catch(e){console.error('smart plan error:',e);}
+    setPlanLoading(false);
+  }
+
+  function acceptSmartPlan(){
+    if(smartPlan){
+      setRoute(smartPlan);
+      setSmartPlan(null);
+    }
+  }
 
   async function saveQuickNote(){
     if(!quickNoteOffice||!quickNoteText.trim()){alert('Select an office and add a note.');return;}
@@ -345,13 +391,37 @@ export default function Home() {
                     <div style={{display:'flex',gap:10,alignItems:'center'}}>
                       {route.length>0&&(
                         <span style={s.cardAction} onClick={()=>{
-                          const stops=route.sort((a,b)=>a.order-b.order).map(s=>encodeURIComponent((s.address||'')+' '+(s.city||'')+' TX'));
+                          const stops=route.sort((a,b)=>a.order-b.order).map(s=>encodeURIComponent((s.address||s.name)+' '+(s.city||'')+' TX'));
                           window.open(`https://www.google.com/maps/dir/${stops.join('/')}+`,'_blank');
-                        }}>Open in Maps</span>
+                        }}>Google Maps</span>
                       )}
-                      <span style={s.cardAction} onClick={()=>setShowRouteSearch(!showRouteSearch)}>+ Add Stop</span>
+                      <span style={s.cardAction} onClick={generateSmartPlan}>{planLoading?'Planning...':'Smart Plan'}</span>
+                      <span style={s.cardAction} onClick={()=>setShowRouteSearch(!showRouteSearch)}>+ Add</span>
                     </div>
                   </div>
+
+                  {/* SMART PLAN SUGGESTION */}
+                  {smartPlan&&(
+                    <div style={{background:'rgba(92,127,89,0.08)',border:'1px solid rgba(92,127,89,0.25)',borderRadius:10,padding:16,marginBottom:14}}>
+                      <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:12}}>
+                        <div style={{fontSize:11,fontWeight:600,textTransform:'uppercase',letterSpacing:'0.1em',color:SAGE}}>Smart Plan — {smartPlan.length} suggested stops</div>
+                        <div style={{display:'flex',gap:8}}>
+                          <button style={{...s.btnPrimary,...s.btnSm}} onClick={acceptSmartPlan}>Accept Route</button>
+                          <button style={{...s.btnSecondary,...s.btnSm}} onClick={()=>setSmartPlan(null)}>Dismiss</button>
+                        </div>
+                      </div>
+                      {smartPlan.map((o,i)=>(
+                        <div key={o.id} style={{display:'flex',alignItems:'center',gap:10,padding:'7px 0',borderBottom:i<smartPlan.length-1?'1px solid rgba(92,127,89,0.15)':'none'}}>
+                          <div style={{width:22,height:22,borderRadius:'50%',background:SAGE,color:'white',display:'flex',alignItems:'center',justifyContent:'center',fontSize:10,fontWeight:700,flexShrink:0}}>{i+1}</div>
+                          <div style={{flex:1}}>
+                            <div style={{fontSize:12,fontWeight:600,color:'#1A1410'}}>{o.name}</div>
+                            <div style={{fontSize:10,color:'#7A6E64'}}>{o.city} · {o.daysSince===60?'Never visited':`${o.daysSince}d ago`}</div>
+                          </div>
+                          <span style={{fontSize:9,fontWeight:700,padding:'2px 7px',borderRadius:10,background:o.tier==='hot'?'rgba(193,123,90,0.12)':'rgba(160,120,64,0.12)',color:o.tier==='hot'?HOT:GOLD,textTransform:'uppercase'}}>{o.tier}</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
 
                   {/* ROUTE SEARCH */}
                   {showRouteSearch&&(
@@ -416,7 +486,7 @@ export default function Home() {
                           {/* ACTIONS */}
                           <div style={{display:'flex',gap:6,flexShrink:0}}>
                             {stop.address&&(
-                              <button style={{...s.btnSecondary,...s.btnSm,padding:'5px 10px'}} onClick={()=>window.open(`https://maps.apple.com/?address=${encodeURIComponent(stop.address+' '+stop.city+' TX')}`,'_blank')}>Nav</button>
+                              <button style={{...s.btnSecondary,...s.btnSm,padding:'5px 10px'}} onClick={()=>window.open(`https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent((stop.address||stop.name)+' '+(stop.city||'')+' TX')}`,'_blank')}>Nav</button>
                             )}
                             <button style={{...s.btnSecondary,...s.btnSm,background:stop.done?'rgba(92,127,89,0.1)':undefined,color:stop.done?SAGE:undefined}} onClick={()=>setRoute(route.map((r,ri)=>ri===i?{...r,done:!r.done}:r))}>{stop.done?'Undo':'Done'}</button>
                             <span style={{cursor:'pointer',color:'#C4B49E',fontSize:18,lineHeight:1,alignSelf:'center'}} onClick={()=>setRoute(route.filter((_,ri)=>ri!==i))}>×</span>
@@ -428,7 +498,7 @@ export default function Home() {
                         <div style={{fontSize:12,color:'#7A6E64'}}>{route.filter(s=>s.done).length} of {route.length} completed</div>
                         <button style={{...s.btnPrimary,...s.btnSm}} onClick={()=>{
                           const stops=route.sort((a,b)=>a.order-b.order).map(s=>encodeURIComponent((s.address||s.name)+' '+(s.city||'')+' TX'));
-                          window.open(`https://maps.apple.com/?daddr=${stops.join('&daddr=')}+`,'_blank');
+                          window.open(`https://www.google.com/maps/dir/${stops.join('/')}+`,'_blank');
                         }}>Full Route in Maps</button>
                       </div>
                     </div>
