@@ -172,18 +172,28 @@ export default function Home() {
           const daysSince = o.lastVisit ? Math.floor((now-new Date(o.lastVisit))/864e5) : 90;
           
           // RULE 1: Too recent — visited within 14 days AND no open action = skip
-          // Only override 14-day rule for specific field actions
-          // Drop-backs (ref pads owed) or explicit task with office name
-          const hasDropBack = o.nextAction && (
-            o.nextAction.toLowerCase().includes('drop ref') ||
-            o.nextAction.toLowerCase().includes('referral pads') ||
-            o.nextAction.toLowerCase().includes('drop-back') ||
-            o.nextAction.toLowerCase().includes('owed')
+          // Only override 14-day rule if supply is actually IN STOCK
+          // Check Supply Depot before suggesting any drop-back visit
+          const refPadsInStock = supplies.some(s=>
+            s.name.toLowerCase().includes('referral') && s.count > 0
           );
+          const cardsInStock = supplies.some(s=>
+            s.name.toLowerCase().includes('card') && s.count > 0
+          );
+
+          const nextActionLower = (o.nextAction||'').toLowerCase();
+          const needsRefPads = nextActionLower.includes('referral pad') || nextActionLower.includes('ref pad') || nextActionLower.includes('owed');
+          const needsCards = nextActionLower.includes('card') && nextActionLower.includes('drop');
+
+          // Drop-back only valid if supply is actually available
+          const hasDropBack = (needsRefPads && refPadsInStock) || (needsCards && cardsInStock);
+
+          // Task-based override — explicit tasks logged by Nikki
           const hasTaskAction = pendingActions.some(a=>
             a.includes(o.name.toLowerCase().slice(0,8)) &&
-            (a.includes('drop')||a.includes('confirm')||a.includes('call'))
+            (a.includes('confirm')||a.includes('call')||a.includes('lock'))
           );
+
           const hasOpenAction = hasDropBack || hasTaskAction;
 
           // HARD RULE: Skip if visited within 14 days AND no real field action needed
