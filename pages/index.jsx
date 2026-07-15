@@ -195,7 +195,7 @@ export default function Home() {
           // TIER 2: 20-24 days — eligible as fill-in
           // TIER 3: has override — eligible regardless of time
           const tier1=neverVisited||daysSince>=25||hasOverride;
-          const tier2=daysSince>=20&&daysSince<25;
+          const tier2=daysSince>=18&&daysSince<25;
           const isEligible=tier1||tier2;
           if(!isEligible) return null;
 
