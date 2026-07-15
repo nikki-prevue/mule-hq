@@ -154,117 +154,142 @@ export default function Home() {
     setPlanLoading(true);
     try{
       const now = Date.now();
-      const dow = new Date().getDay(); // 0=Sun,1=Mon,2=Tue,3=Wed,4=Thu,5=Fri
+      const dow = new Date().getDay(); // 0=Sun,1=Mon,2=Tue,3=Wed,4=Thu,5=Fri,6=Sat
 
-      // Friday = admin day, no route
+      // Friday = admin day — no route
       if(dow===5){
         setSmartPlan([]);
+        setSmartPlanQueue([]);
         setPlanLoading(false);
         return;
       }
 
-      // Get pending action items from tasks
-      const pendingActions = tasks.filter(t=>!t.done).map(t=>t.text.toLowerCase());
+      // PERMANENTLY BLOCKED — never suggest, never show
+      const BLOCKED = [
+        'irving kids dentist',
+        'shine and sparkle dentistry',
+      ];
+
+      // HOLD — need more info, dont suggest yet
+      const ON_HOLD = [
+        'glorious smiles',
+        'baylor scott',
+      ];
+
+      // Supply availability check
+      const refPadsInStock = supplies.some(s=>s.name.toLowerCase().includes('referral')&&s.count>0);
+      const cardsInStock = supplies.some(s=>s.name.toLowerCase().includes('card')&&s.count>0);
+
+      // Pending tasks for cross-reference
+      const pendingTaskText = tasks.filter(t=>!t.done).map(t=>t.text.toLowerCase());
 
       const scored = offices
-        .filter(o=>o.status!=='Do Not Target')
+        .filter(o=>{
+          const nameLower = o.name.toLowerCase();
+          // Block permanently blocked offices
+          if(BLOCKED.some(b=>nameLower.includes(b))) return false;
+          // Block on-hold offices
+          if(ON_HOLD.some(h=>nameLower.includes(h))) return false;
+          // Block Do Not Target
+          if(o.status==='Do Not Target') return false;
+          return true;
+        })
         .map(o=>{
           const daysSince = o.lastVisit ? Math.floor((now-new Date(o.lastVisit))/864e5) : 90;
-          
-          // RULE 1: Too recent — visited within 14 days AND no open action = skip
-          // Only override 14-day rule if supply is actually IN STOCK
-          // Check Supply Depot before suggesting any drop-back visit
-          const refPadsInStock = supplies.some(s=>
-            s.name.toLowerCase().includes('referral') && s.count > 0
-          );
-          const cardsInStock = supplies.some(s=>
-            s.name.toLowerCase().includes('card') && s.count > 0
-          );
+          const nextLower = (o.nextAction||'').toLowerCase();
 
-          const nextActionLower = (o.nextAction||'').toLowerCase();
-          const needsRefPads = nextActionLower.includes('referral pad') || nextActionLower.includes('ref pad') || nextActionLower.includes('owed');
-          const needsCards = nextActionLower.includes('card') && nextActionLower.includes('drop');
+          // Supply-aware drop-back check
+          const needsRefPads = nextLower.includes('referral pad')||nextLower.includes('ref pad')||nextLower.includes('owed');
+          const needsCards = nextLower.includes('card')&&nextLower.includes('drop');
+          const dropBackReady = (needsRefPads&&refPadsInStock)||(needsCards&&cardsInStock);
 
-          // Drop-back only valid if supply is actually available
-          const hasDropBack = (needsRefPads && refPadsInStock) || (needsCards && cardsInStock);
-
-          // Task-based override — explicit tasks logged by Nikki
-          const hasTaskAction = pendingActions.some(a=>
-            a.includes(o.name.toLowerCase().slice(0,8)) &&
-            (a.includes('confirm')||a.includes('call')||a.includes('lock'))
+          // Task override — Nikki explicitly logged a task for this office
+          const hasExplicitTask = pendingTaskText.some(t=>
+            t.includes(o.name.toLowerCase().slice(0,10))&&
+            (t.includes('call')||t.includes('confirm')||t.includes('lock'))
           );
 
-          const hasOpenAction = hasDropBack || hasTaskAction;
+          const hasOverride = dropBackReady||hasExplicitTask;
 
-          // HARD RULE: Skip if visited within 14 days AND no real field action needed
-          if(daysSince<14 && !hasOpenAction) return null;
+          // CORE TIME RULE: 25+ days OR never visited OR has override
+          const neverVisited = !o.lastVisit;
+          const isDue = daysSince>=25;
+          const eligible = neverVisited||isDue||hasOverride;
 
-          // RULE 2: Score by urgency
+          if(!eligible) return null;
+
+          // SCORING — higher = more urgent
           let score = 0;
 
-          // Time-based scoring
-          if(daysSince>=30) score+=40;       // Overdue — always include
-          else if(daysSince>=23) score+=25;  // Due — include
-          else if(daysSince>=15) score+=10;  // Due soon — include if hot/top
-          else if(hasOpenAction) score+=35;  // Recent but has open action — include
+          // Time urgency
+          if(daysSince>=30) score+=40;
+          else if(daysSince>=25) score+=25;
+          else if(neverVisited) score+=35;
+          else if(hasOverride) score+=30;
 
-          // Tier scoring
+          // Tier
           if(o.tier==='hot') score+=25;
           else if(o.tier==='warm') score+=10;
 
-          // Top referrer bonus
+          // Top referrer
           if(o.topReferrer) score+=20;
           if((o.referralVolume||0)>20) score+=15;
 
-          // Never visited bonus
-          if(!o.lastVisit) score+=30;
+          // Has a specific next action (not generic)
+          const genericActions = ['follow up','follow-up',''];
+          const hasSpecificAction = o.nextAction&&!genericActions.includes(nextLower.trim());
+          if(hasSpecificAction&&hasOverride) score+=15;
 
-          // Open action bonus
-          if(hasOpenAction) score+=20;
-
-          // Wednesday: no special lunch logic — Nikki decides lunches herself
-
-          // Exclude Other city unless has very high score
-          if(o.city==='Other' && score<60) return null;
-
-          return {...o, score, daysSince, hasOpenAction};
+          return {...o,score,daysSince,neverVisited,hasOverride,dropBackReady,hasExplicitTask};
         })
         .filter(Boolean)
         .sort((a,b)=>b.score-a.score);
 
-      // Geo-cluster — group by city in logical drive order
-      // FM and HV are close, LV is separate
-      const mustVisit = scored.filter(o=>o.hasOpenAction).slice(0,3);
-      const mustIds = new Set(mustVisit.map(o=>o.id));
-      const remaining = scored.filter(o=>!mustIds.has(o.id));
+      // GEO-CLUSTER by day of week
+      // Mon/Wed/Thu → FM first then HV
+      // Tue → Lewisville first then HV
+      const fm = scored.filter(o=>o.city==='Flower Mound');
+      const hv = scored.filter(o=>o.city==='Highland Village');
+      const lv = scored.filter(o=>o.city==='Lewisville');
+      const other = scored.filter(o=>o.city==='Other');
 
-      // Fill to 7 stops with geo-clustering
-      const fm = remaining.filter(o=>o.city==='Flower Mound');
-      const hv = remaining.filter(o=>o.city==='Highland Village');
-      const lv = remaining.filter(o=>o.city==='Lewisville');
-      const other = remaining.filter(o=>o.city==='Other');
+      let clustered;
+      if(dow===2){ // Tuesday — Lewisville focus
+        clustered=[...lv.slice(0,3),...hv.slice(0,2),...fm.slice(0,2)];
+      } else { // Mon, Wed, Thu — FM focus
+        clustered=[...fm.slice(0,3),...hv.slice(0,2),...lv.slice(0,2)];
+      }
 
-      // Determine primary cluster based on day
-      let clustered = [];
-      if(dow===1||dow===3) clustered=[...fm.slice(0,3),...hv.slice(0,2),...lv.slice(0,1)];
-      else if(dow===2) clustered=[...lv.slice(0,3),...hv.slice(0,2),...fm.slice(0,1)];
-      else clustered=[...fm.slice(0,2),...hv.slice(0,2),...lv.slice(0,2)];
+      // Remove duplicates (in case office appears in multiple city arrays)
+      const seen = new Set();
+      const deduped = clustered.filter(o=>{
+        if(seen.has(o.id)) return false;
+        seen.add(o.id);
+        return true;
+      });
 
-      const combined = [...mustVisit,...clustered.filter(o=>!mustIds.has(o.id))].slice(0,7);
-      const suggested = combined.map((o,i)=>({...o,order:i+1,done:false,stopNote:''}));
-      // Build backup queue — next 5 offices after the 7 selected
-      const selectedIds = new Set(combined.map(o=>o.id));
-      const backup = scored.filter(o=>!selectedIds.has(o.id)).slice(0,5).map((o,i)=>({...o,order:8+i,done:false,stopNote:''}));
-      setSmartPlanQueue(backup);
+      const suggested = deduped.slice(0,7).map((o,i)=>({...o,order:i+1,done:false,stopNote:''}));
+
+      // Build backup queue — next 5 after the 7 selected
+      const selectedIds = new Set(suggested.map(o=>o.id));
+      const backup = scored
+        .filter(o=>!selectedIds.has(o.id))
+        .slice(0,5)
+        .map((o,i)=>({...o,order:8+i,done:false,stopNote:''}));
+
       setSmartPlan(suggested);
-    }catch(e){console.error('smart plan error:',e);}
+      setSmartPlanQueue(backup);
+    }catch(e){
+      console.error('smart plan error:',e);
+    }
     setPlanLoading(false);
   }
 
   function acceptSmartPlan(){
-    if(smartPlan){
-      setRoute(smartPlan.map(o=>({...o,stopNote:''})));
+    if(smartPlan&&smartPlan.length>0){
+      setRoute(smartPlan.map((o,i)=>({...o,order:i+1,done:false})));
       setSmartPlan(null);
+      setSmartPlanQueue([]);
     }
   }
 
@@ -513,26 +538,40 @@ export default function Home() {
                           </div>
                           {smartPlan.map((o,i)=>(
                             <div key={o.id} style={{display:'flex',alignItems:'center',gap:10,padding:'9px 0',borderBottom:i<smartPlan.length-1?'1px solid rgba(92,127,89,0.15)':'none'}}>
-                              <div style={{width:24,height:24,borderRadius:'50%',background:o.hasOpenAction?GOLD:SAGE,color:'white',display:'flex',alignItems:'center',justifyContent:'center',fontSize:10,fontWeight:700,flexShrink:0}}>{i+1}</div>
-                              <div style={{flex:1,minWidth:0}}>
-                                <div style={{fontSize:12,fontWeight:600,color:'#1A1410',whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{o.name}</div>
-                                <div style={{fontSize:10,color:'#7A6E64'}}>{o.city} · {!o.lastVisit?'Never visited':o.daysSince+'d since last visit'}</div>
-                                {o.hasOpenAction&&o.nextAction&&<div style={{fontSize:10,color:GOLD,fontWeight:500,marginTop:1}}>Action: {o.nextAction.substring(0,50)}</div>}
+                              {/* STOP NUMBER */}
+                              <div style={{width:24,height:24,borderRadius:'50%',background:o.hasOverride?GOLD:SAGE,color:'white',display:'flex',alignItems:'center',justifyContent:'center',fontSize:10,fontWeight:700,flexShrink:0}}>{i+1}</div>
+                              {/* CLICKABLE OFFICE INFO — opens full profile */}
+                              <div onClick={()=>setSelectedOffice(offices.find(off=>off.id===o.id)||o)} style={{flex:1,minWidth:0,cursor:'pointer'}} title="Tap to see full office profile">
+                                <div style={{display:'flex',alignItems:'center',gap:6}}>
+                                  <div style={{fontSize:12,fontWeight:600,color:'#1A1410',whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{o.name}</div>
+                                  <span style={{fontSize:9,color:GOLD,flexShrink:0}}>▶ view</span>
+                                </div>
+                                <div style={{fontSize:10,color:'#7A6E64'}}>{o.city} · {o.neverVisited?'Never visited':o.daysSince+'d ago'}</div>
+                                {o.hasOverride&&o.nextAction&&(
+                                  <div style={{fontSize:10,color:GOLD,fontWeight:600,marginTop:1,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>
+                                    {o.dropBackReady?'Drop-back ready: ':o.hasExplicitTask?'Task: ':''}{o.nextAction.substring(0,55)}
+                                  </div>
+                                )}
                               </div>
-                              <div style={{display:'flex',flexDirection:'column',alignItems:'flex-end',gap:3}}>
+                              {/* BADGES + DISMISS */}
+                              <div style={{display:'flex',flexDirection:'column',alignItems:'flex-end',gap:3,flexShrink:0}}>
                                 <span style={{fontSize:9,fontWeight:700,padding:'2px 7px',borderRadius:10,background:o.tier==='hot'?'rgba(193,123,90,0.12)':'rgba(160,120,64,0.12)',color:o.tier==='hot'?HOT:GOLD,textTransform:'uppercase'}}>{o.tier}</span>
                                 {o.daysSince>=30&&<span style={{fontSize:9,fontWeight:700,color:'#E85C5C',textTransform:'uppercase'}}>Overdue</span>}
-                                {o.hasOpenAction&&<span style={{fontSize:9,fontWeight:700,color:GOLD,textTransform:'uppercase'}}>Action</span>}
-                                <span onClick={()=>{
-                                  const next=smartPlanQueue[0];
-                                  const updated=smartPlan.filter((_,si)=>si!==i).map((s,si)=>({...s,order:si+1}));
-                                  if(next){
-                                    setSmartPlan([...updated,{...next,order:updated.length+1}]);
-                                    setSmartPlanQueue(smartPlanQueue.slice(1));
-                                  } else {
-                                    setSmartPlan(updated);
-                                  }
-                                }} style={{cursor:'pointer',color:'#C4B49E',fontSize:14,fontWeight:700,marginTop:2}}>✕</span>
+                                {o.neverVisited&&<span style={{fontSize:9,fontWeight:700,color:SAGE,textTransform:'uppercase'}}>New</span>}
+                                <span
+                                  title="Remove — next best replaces it"
+                                  onClick={()=>{
+                                    const next=smartPlanQueue[0];
+                                    const updated=smartPlan.filter((_,si)=>si!==i).map((s,si)=>({...s,order:si+1}));
+                                    if(next){
+                                      setSmartPlan([...updated,{...next,order:updated.length+1}]);
+                                      setSmartPlanQueue(smartPlanQueue.slice(1));
+                                    } else {
+                                      setSmartPlan(updated);
+                                    }
+                                  }}
+                                  style={{cursor:'pointer',color:'#C4B49E',fontSize:15,fontWeight:700,marginTop:2,lineHeight:1}}
+                                >✕</span>
                               </div>
                             </div>
                           ))}
