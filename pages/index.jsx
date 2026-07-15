@@ -71,6 +71,7 @@ export default function Home() {
   const [routeSearch,setRouteSearch]=useState('');
   const [smartPlan,setSmartPlan]=useState(null);
   const [planLoading,setPlanLoading]=useState(false);
+  const [smartPlanQueue,setSmartPlanQueue]=useState([]);
   const [taskNoteModal,setTaskNoteModal]=useState(null);
   const [taskNoteText,setTaskNoteText]=useState('');
   const [showRouteSearch,setShowRouteSearch]=useState(false);
@@ -171,11 +172,21 @@ export default function Home() {
           const daysSince = o.lastVisit ? Math.floor((now-new Date(o.lastVisit))/864e5) : 90;
           
           // RULE 1: Too recent — visited within 14 days AND no open action = skip
-          const hasOpenAction = (
-            (o.nextAction && o.nextAction!=='Follow up' && o.nextAction!=='') ||
-            lunches.some(l=>l.office===o.name && (l.status==='Pending'||l.status==='Ordered')) ||
-            pendingActions.some(a=>a.includes(o.name.toLowerCase().slice(0,10)))
+          // REAL action triggers only — generic "Follow up" does NOT count
+          const GENERIC_ACTIONS = ['follow up','slate appreciation','follow-up','']);
+          const hasSpecificAction = o.nextAction && 
+            !GENERIC_ACTIONS.some(g=>o.nextAction.toLowerCase().startsWith(g)) &&
+            o.nextAction.trim()!=='';
+          const hasPendingLunch = lunches.some(l=>
+            l.office===o.name && (l.status==='Pending'||l.status==='Ordered')
           );
+          const hasTaskAction = pendingActions.some(a=>
+            a.includes(o.name.toLowerCase().slice(0,8)) &&
+            (a.includes('drop')||a.includes('confirm')||a.includes('lock')||a.includes('call'))
+          );
+          const hasOpenAction = hasSpecificAction || hasPendingLunch || hasTaskAction;
+
+          // HARD RULE: Skip if visited within 14 days AND no real action needed
           if(daysSince<14 && !hasOpenAction) return null;
 
           // RULE 2: Score by urgency
@@ -235,7 +246,10 @@ export default function Home() {
 
       const combined = [...mustVisit,...clustered.filter(o=>!mustIds.has(o.id))].slice(0,7);
       const suggested = combined.map((o,i)=>({...o,order:i+1,done:false,stopNote:''}));
-
+      // Build backup queue — next 5 offices after the 7 selected
+      const selectedIds = new Set(combined.map(o=>o.id));
+      const backup = scored.filter(o=>!selectedIds.has(o.id)).slice(0,5).map((o,i)=>({...o,order:8+i,done:false,stopNote:''}));
+      setSmartPlanQueue(backup);
       setSmartPlan(suggested);
     }catch(e){console.error('smart plan error:',e);}
     setPlanLoading(false);
@@ -503,6 +517,16 @@ export default function Home() {
                                 <span style={{fontSize:9,fontWeight:700,padding:'2px 7px',borderRadius:10,background:o.tier==='hot'?'rgba(193,123,90,0.12)':'rgba(160,120,64,0.12)',color:o.tier==='hot'?HOT:GOLD,textTransform:'uppercase'}}>{o.tier}</span>
                                 {o.daysSince>=30&&<span style={{fontSize:9,fontWeight:700,color:'#E85C5C',textTransform:'uppercase'}}>Overdue</span>}
                                 {o.hasOpenAction&&<span style={{fontSize:9,fontWeight:700,color:GOLD,textTransform:'uppercase'}}>Action</span>}
+                                <span onClick={()=>{
+                                  const next=smartPlanQueue[0];
+                                  const updated=smartPlan.filter((_,si)=>si!==i).map((s,si)=>({...s,order:si+1}));
+                                  if(next){
+                                    setSmartPlan([...updated,{...next,order:updated.length+1}]);
+                                    setSmartPlanQueue(smartPlanQueue.slice(1));
+                                  } else {
+                                    setSmartPlan(updated);
+                                  }
+                                }} style={{cursor:'pointer',color:'#C4B49E',fontSize:14,fontWeight:700,marginTop:2}}>✕</span>
                               </div>
                             </div>
                           ))}
