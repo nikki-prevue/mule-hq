@@ -1080,37 +1080,187 @@ export default function Home() {
       {/* ═══ OFFICE DETAIL PANEL ═══ */}
       {selectedOffice&&(
         <div style={s.modal} onClick={e=>e.target===e.currentTarget&&setSelectedOffice(null)}>
-          <div className="modal-box-inner" style={{...s.modalBox,width:620}}>
+          <div className="modal-box-inner" style={{...s.modalBox,width:640,maxHeight:'90vh'}}>
+
+            {/* HEADER */}
             <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',marginBottom:6}}>
-              <div style={s.modalTitle}>{selectedOffice.name}</div>
-              <span style={{cursor:'pointer',color:'#7A6E64',fontSize:20,padding:'0 4px'}} onClick={()=>setSelectedOffice(null)}>×</span>
+              <div style={{flex:1,paddingRight:16}}>
+                <div style={{fontFamily:"'Cormorant Garamond',serif",fontSize:22,fontWeight:500,color:'#1A1410',lineHeight:1.2}}>{selectedOffice.name}</div>
+                <div style={{fontSize:12,color:'#7A6E64',marginTop:4}}>{selectedOffice.city} · {selectedOffice.doctor||'Doctor not listed'}</div>
+              </div>
+              <span style={{cursor:'pointer',color:'#7A6E64',fontSize:22,lineHeight:1}} onClick={()=>setSelectedOffice(null)}>×</span>
             </div>
+
+            {/* TIER + STATUS BADGES */}
             <div style={{display:'flex',gap:8,marginBottom:16,flexWrap:'wrap'}}>
               <span style={s.tierBadge(selectedOffice.tier)}>{selectedOffice.tier}</span>
-              {selectedOffice.status&&<span style={s.pill(selectedOffice.status==='Visited'?SAGE:selectedOffice.status==='Do Not Target'?HOT:'#9A8E82')}>{selectedOffice.status}</span>}
-              <span style={{fontSize:11,color:'#7A6E64'}}>{selectedOffice.city}</span>
+              {selectedOffice.topReferrer&&<span style={{fontSize:9,fontWeight:700,padding:'3px 8px',borderRadius:20,background:'rgba(247,200,122,0.25)',color:'#8B6914',textTransform:'uppercase'}}>Top Referrer</span>}
+              {selectedOffice.referralVolume>0&&<span style={{fontSize:10,color:GOLD,fontWeight:600}}>{selectedOffice.referralVolume} referrals/yr</span>}
+              <span style={{fontSize:11,color:!selectedOffice.lastVisit||(Date.now()-new Date(selectedOffice.lastVisit))>25*864e5?'#E85C5C':SAGE,fontWeight:600}}>
+                {!selectedOffice.lastVisit?'Never visited':`Last visit: ${Math.floor((Date.now()-new Date(selectedOffice.lastVisit))/864e5)}d ago`}
+              </span>
             </div>
-            <div style={s.divider}/>
+
+            <div style={{height:1,background:'linear-gradient(90deg,transparent,#D4B483,transparent)',marginBottom:16,opacity:0.4}}></div>
+
+            {/* PRE-VISIT INTEL — shown prominently */}
+            {selectedOffice.notes&&(
+              <div style={{background:'rgba(160,120,64,0.06)',border:'1px solid rgba(160,120,64,0.2)',borderRadius:10,padding:'12px 16px',marginBottom:16}}>
+                <div style={{fontSize:10,fontWeight:600,textTransform:'uppercase',letterSpacing:'0.1em',color:GOLD,marginBottom:8}}>Field Intel & Notes</div>
+                <div style={{fontSize:13,color:'#3D3228',lineHeight:1.7,whiteSpace:'pre-wrap'}}>{selectedOffice.notes}</div>
+              </div>
+            )}
+
+            {/* EDITABLE FIELDS GRID */}
             <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:12,marginBottom:16}}>
-              {selectedOffice.doctor&&<div><div style={{fontSize:10,fontWeight:600,textTransform:'uppercase',letterSpacing:'0.08em',color:'#6E5F50',marginBottom:3}}>Doctor</div><div style={{fontSize:13}}>{selectedOffice.doctor}</div></div>}
-              {selectedOffice.contact&&<div><div style={{fontSize:10,fontWeight:600,textTransform:'uppercase',letterSpacing:'0.08em',color:'#6E5F50',marginBottom:3}}>Contact</div><div style={{fontSize:13}}>{selectedOffice.contact}</div></div>}
-              {selectedOffice.address&&<div><div style={{fontSize:10,fontWeight:600,textTransform:'uppercase',letterSpacing:'0.08em',color:'#6E5F50',marginBottom:3}}>Address</div><a href={`https://maps.google.com/?q=${encodeURIComponent(selectedOffice.address)}`} target="_blank" rel="noreferrer" style={{fontSize:13,color:GOLD,textDecoration:'none'}}>{selectedOffice.address}</a></div>}
-              <div><div style={{fontSize:10,fontWeight:600,textTransform:'uppercase',letterSpacing:'0.08em',color:'#6E5F50',marginBottom:3}}>Last Visit</div><div style={{fontSize:13,color:isOverdue(selectedOffice.lastVisit)?HOT:SAGE,fontWeight:isOverdue(selectedOffice.lastVisit)?600:400}}>{daysAgo(selectedOffice.lastVisit)}</div></div>
+              {/* CONTACT */}
+              <div>
+                <div style={{fontSize:10,fontWeight:600,textTransform:'uppercase',letterSpacing:'0.08em',color:'#6E5F50',marginBottom:4}}>Contact Person</div>
+                <input
+                  style={{...s.input,marginBottom:0,fontSize:13}}
+                  defaultValue={selectedOffice.contact||''}
+                  placeholder="Front desk name, OM..."
+                  onBlur={async(e)=>{
+                    if(e.target.value!==selectedOffice.contact){
+                      await fetch('/api/offices',{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({id:selectedOffice.id,contact:e.target.value})});
+                      setSelectedOffice({...selectedOffice,contact:e.target.value});
+                      await loadAll();
+                    }
+                  }}
+                />
+              </div>
+              {/* DOCTOR */}
+              <div>
+                <div style={{fontSize:10,fontWeight:600,textTransform:'uppercase',letterSpacing:'0.08em',color:'#6E5F50',marginBottom:4}}>Doctor(s)</div>
+                <input
+                  style={{...s.input,marginBottom:0,fontSize:13}}
+                  defaultValue={selectedOffice.doctor||''}
+                  placeholder="Dr. Last Name"
+                  onBlur={async(e)=>{
+                    if(e.target.value!==selectedOffice.doctor){
+                      await fetch('/api/offices',{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({id:selectedOffice.id,doctor:e.target.value})});
+                      setSelectedOffice({...selectedOffice,doctor:e.target.value});
+                      await loadAll();
+                    }
+                  }}
+                />
+              </div>
+              {/* ADDRESS */}
+              <div style={{gridColumn:'1/-1'}}>
+                <div style={{fontSize:10,fontWeight:600,textTransform:'uppercase',letterSpacing:'0.08em',color:'#6E5F50',marginBottom:4}}>Address</div>
+                <input
+                  style={{...s.input,marginBottom:0,fontSize:13}}
+                  defaultValue={selectedOffice.address||''}
+                  placeholder="Full address..."
+                  onBlur={async(e)=>{
+                    if(e.target.value!==selectedOffice.address){
+                      await fetch('/api/offices',{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({id:selectedOffice.id,address:e.target.value})});
+                      setSelectedOffice({...selectedOffice,address:e.target.value});
+                      await loadAll();
+                    }
+                  }}
+                />
+              </div>
+              {/* TIER */}
+              <div>
+                <div style={{fontSize:10,fontWeight:600,textTransform:'uppercase',letterSpacing:'0.08em',color:'#6E5F50',marginBottom:4}}>Tier</div>
+                <select
+                  style={{...s.select,marginBottom:0,fontSize:13}}
+                  value={selectedOffice.tier}
+                  onChange={async(e)=>{
+                    await fetch('/api/offices',{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({id:selectedOffice.id,tier:e.target.value})});
+                    setSelectedOffice({...selectedOffice,tier:e.target.value});
+                    await loadAll();
+                  }}
+                >
+                  <option value="hot">Hot</option>
+                  <option value="warm">Warm</option>
+                  <option value="cold">Cold</option>
+                </select>
+              </div>
+              {/* LAST GIFT */}
+              <div>
+                <div style={{fontSize:10,fontWeight:600,textTransform:'uppercase',letterSpacing:'0.08em',color:'#6E5F50',marginBottom:4}}>Last Gift / Drop</div>
+                <input
+                  style={{...s.input,marginBottom:0,fontSize:13,color:GOLD}}
+                  defaultValue={selectedOffice.gift||''}
+                  placeholder="What did you drop last time?"
+                  onBlur={async(e)=>{
+                    if(e.target.value!==selectedOffice.gift){
+                      await fetch('/api/offices',{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({id:selectedOffice.id,gift:e.target.value})});
+                      setSelectedOffice({...selectedOffice,gift:e.target.value});
+                      await loadAll();
+                    }
+                  }}
+                />
+              </div>
+              {/* NEXT ACTION */}
+              <div style={{gridColumn:'1/-1'}}>
+                <div style={{fontSize:10,fontWeight:600,textTransform:'uppercase',letterSpacing:'0.08em',color:'#6E5F50',marginBottom:4}}>Next Action</div>
+                <input
+                  style={{...s.input,marginBottom:0,fontSize:13,color:SAGE}}
+                  defaultValue={selectedOffice.nextAction||''}
+                  placeholder="What needs to happen next?"
+                  onBlur={async(e)=>{
+                    if(e.target.value!==selectedOffice.nextAction){
+                      await fetch('/api/offices',{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({id:selectedOffice.id,nextAction:e.target.value})});
+                      setSelectedOffice({...selectedOffice,nextAction:e.target.value});
+                      await loadAll();
+                    }
+                  }}
+                />
+              </div>
+              {/* NOTES — FULL EDITABLE */}
+              <div style={{gridColumn:'1/-1'}}>
+                <div style={{fontSize:10,fontWeight:600,textTransform:'uppercase',letterSpacing:'0.08em',color:'#6E5F50',marginBottom:4}}>Full Notes (click to edit)</div>
+                <textarea
+                  style={{...s.textarea,marginBottom:0,fontSize:13,minHeight:100}}
+                  defaultValue={selectedOffice.notes||''}
+                  placeholder="Office intel, staff notes, Dr. Patel requests, anything important..."
+                  onBlur={async(e)=>{
+                    if(e.target.value!==selectedOffice.notes){
+                      await fetch('/api/offices',{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({id:selectedOffice.id,notes:e.target.value})});
+                      setSelectedOffice({...selectedOffice,notes:e.target.value});
+                      await loadAll();
+                    }
+                  }}
+                />
+              </div>
             </div>
-            {selectedOffice.gift&&<div style={{marginBottom:12}}><div style={{fontSize:10,fontWeight:600,textTransform:'uppercase',letterSpacing:'0.08em',color:'#6E5F50',marginBottom:3}}>Last Gift / Drop</div><div style={{fontSize:13,color:GOLD}}>{selectedOffice.gift}</div></div>}
-            {selectedOffice.notes&&<div style={{marginBottom:12}}><div style={{fontSize:10,fontWeight:600,textTransform:'uppercase',letterSpacing:'0.08em',color:'#6E5F50',marginBottom:3}}>Notes</div><div style={{fontSize:13,color:'#3D3228',background:'#FAFAF7',border:'1px solid #EDE6D6',borderRadius:8,padding:12,lineHeight:1.6}}>{selectedOffice.notes}</div></div>}
-            {selectedOffice.nextAction&&<div style={{marginBottom:16}}><div style={{fontSize:10,fontWeight:600,textTransform:'uppercase',letterSpacing:'0.08em',color:'#6E5F50',marginBottom:3}}>Next Action</div><div style={{fontSize:13,color:SAGE,fontWeight:500}}>{selectedOffice.nextAction}</div></div>}
-            <div style={s.divider}/>
-            <div style={{display:'flex',gap:8,flexWrap:'wrap'}}>
-              <button style={s.btnPrimary} onClick={()=>{if(!route.find(r=>r.name===selectedOffice.name)){setRoute([...route,{...selectedOffice,order:route.length+1,done:false}]);}setSelectedOffice(null);setPage('command');}}>+ Add to Route</button>
-              {selectedOffice.address&&<button style={s.btnSecondary} onClick={()=>window.open(`https://maps.google.com/?q=${encodeURIComponent(selectedOffice.address)}`,'_blank')}>Map It</button>}
-              <button style={s.btnSecondary} onClick={()=>{setLogOffice(selectedOffice.name);setSelectedOffice(null);setPage('fieldlog');}}>Log Visit</button>
+
+            {/* ACTION BUTTONS */}
+            <div style={{display:'flex',gap:8,flexWrap:'wrap',paddingTop:12,borderTop:'1px solid #EDE6D6'}}>
+              <button style={s.btnPrimary} onClick={()=>{
+                if(!route.find(r=>r.name===selectedOffice.name)){
+                  setRoute([...route,{...selectedOffice,order:route.length+1,done:false,stopNote:''}]);
+                }
+                setSelectedOffice(null);
+                setPage('command');
+              }}>+ Add to Route</button>
+              {selectedOffice.address&&(
+                <button style={s.btnSecondary} onClick={()=>window.open(`https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(selectedOffice.address+' '+selectedOffice.city+' TX')}`,'_blank')}>
+                  Google Maps
+                </button>
+              )}
+              <button style={s.btnSecondary} onClick={()=>{
+                setLogOffice(selectedOffice.name);
+                setLogContact(selectedOffice.contact||'');
+                setLogTier(selectedOffice.tier||'warm');
+                setLogNextAction(selectedOffice.nextAction||'');
+                setSelectedOffice(null);
+                setPage('fieldlog');
+              }}>Log Visit</button>
+              <button style={s.btnSecondary} onClick={()=>{
+                setQuickNoteOffice(selectedOffice.name);
+                setSelectedOffice(null);
+                setPage('fieldlog');
+              }}>Quick Note</button>
             </div>
           </div>
         </div>
       )}
 
-      {/* ═══ VISIT DETAIL PANEL ═══ */}
+            {/* ═══ VISIT DETAIL PANEL ═══ */}
       {selectedVisit&&(
         <div style={s.modal} onClick={e=>e.target===e.currentTarget&&setSelectedVisit(null)}>
           <div className="modal-box-inner" style={{...s.modalBox,width:560}}>
