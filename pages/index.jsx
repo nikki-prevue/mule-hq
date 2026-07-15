@@ -259,8 +259,7 @@ export default function Home() {
     await fetch('/api/tasks',{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({
       id:taskNoteModal.id,
       text:taskNoteModal.text,
-      notes:(taskNoteModal.notes?taskNoteModal.notes+'
-':'')+noteEntry
+      notes:(taskNoteModal.notes?taskNoteModal.notes+'\n':'')+noteEntry
     })});
     setTaskNoteText('');
     setTaskNoteModal(null);
