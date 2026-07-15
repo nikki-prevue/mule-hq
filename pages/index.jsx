@@ -72,6 +72,8 @@ export default function Home() {
   const [smartPlan,setSmartPlan]=useState(null);
   const [planLoading,setPlanLoading]=useState(false);
   const [smartPlanQueue,setSmartPlanQueue]=useState([]);
+  const [smartPlanSearch,setSmartPlanSearch]=useState('');
+  const [comingDue,setComingDue]=useState([]);
   const [taskNoteModal,setTaskNoteModal]=useState(null);
   const [taskNoteText,setTaskNoteText]=useState('');
   const [showRouteSearch,setShowRouteSearch]=useState(false);
@@ -154,134 +156,109 @@ export default function Home() {
     setPlanLoading(true);
     try{
       const now = Date.now();
-      const dow = new Date().getDay(); // 0=Sun,1=Mon,2=Tue,3=Wed,4=Thu,5=Fri,6=Sat
+      const dow = new Date().getDay();
 
-      // Friday = admin day — no route
       if(dow===5){
         setSmartPlan([]);
         setSmartPlanQueue([]);
+        setComingDue([]);
         setPlanLoading(false);
         return;
       }
 
-      // PERMANENTLY BLOCKED — never suggest, never show
-      const BLOCKED = [
-        'irving kids dentist',
-        'shine and sparkle dentistry',
-      ];
-
-      // HOLD — need more info, dont suggest yet
-      const ON_HOLD = [
-        'glorious smiles',
-        'baylor scott',
-      ];
-
-      // Supply availability check
+      const BLOCKED = ['irving kids dentist','shine and sparkle dentistry'];
+      const ON_HOLD = ['glorious smiles','baylor scott'];
       const refPadsInStock = supplies.some(s=>s.name.toLowerCase().includes('referral')&&s.count>0);
       const cardsInStock = supplies.some(s=>s.name.toLowerCase().includes('card')&&s.count>0);
-
-      // Pending tasks for cross-reference
       const pendingTaskText = tasks.filter(t=>!t.done).map(t=>t.text.toLowerCase());
 
-      const scored = offices
+      const eligible = offices
         .filter(o=>{
-          const nameLower = o.name.toLowerCase();
-          // Block permanently blocked offices
-          if(BLOCKED.some(b=>nameLower.includes(b))) return false;
-          // Block on-hold offices
-          if(ON_HOLD.some(h=>nameLower.includes(h))) return false;
-          // Block Do Not Target
+          const n=o.name.toLowerCase();
+          if(BLOCKED.some(b=>n.includes(b))) return false;
+          if(ON_HOLD.some(h=>n.includes(h))) return false;
           if(o.status==='Do Not Target') return false;
+          if(o.status==='On Hold - Pending Info') return false;
           return true;
         })
         .map(o=>{
-          const daysSince = o.lastVisit ? Math.floor((now-new Date(o.lastVisit))/864e5) : 90;
-          const nextLower = (o.nextAction||'').toLowerCase();
+          const daysSince=o.lastVisit?Math.floor((now-new Date(o.lastVisit))/864e5):90;
+          const neverVisited=!o.lastVisit;
+          const nextLower=(o.nextAction||'').toLowerCase();
+          const needsRefPads=nextLower.includes('referral pad')||nextLower.includes('ref pad')||nextLower.includes('owed');
+          const needsCards=nextLower.includes('card')&&nextLower.includes('drop');
+          const dropBackReady=(needsRefPads&&refPadsInStock)||(needsCards&&cardsInStock);
+          const hasExplicitTask=pendingTaskText.some(t=>t.includes(o.name.toLowerCase().slice(0,10))&&(t.includes('call')||t.includes('confirm')||t.includes('lock')));
+          const hasOverride=dropBackReady||hasExplicitTask;
 
-          // Supply-aware drop-back check
-          const needsRefPads = nextLower.includes('referral pad')||nextLower.includes('ref pad')||nextLower.includes('owed');
-          const needsCards = nextLower.includes('card')&&nextLower.includes('drop');
-          const dropBackReady = (needsRefPads&&refPadsInStock)||(needsCards&&cardsInStock);
+          // TIER 1: 25+ days or never visited — fully eligible
+          // TIER 2: 20-24 days — eligible as fill-in
+          // TIER 3: has override — eligible regardless of time
+          const tier1=neverVisited||daysSince>=25||hasOverride;
+          const tier2=daysSince>=20&&daysSince<25;
+          const isEligible=tier1||tier2;
+          if(!isEligible) return null;
 
-          // Task override — Nikki explicitly logged a task for this office
-          const hasExplicitTask = pendingTaskText.some(t=>
-            t.includes(o.name.toLowerCase().slice(0,10))&&
-            (t.includes('call')||t.includes('confirm')||t.includes('lock'))
-          );
+          let score=0;
+          if(daysSince>=30) score+=50;
+          else if(daysSince>=25) score+=35;
+          else if(neverVisited) score+=40;
+          else if(hasOverride) score+=35;
+          else if(tier2) score+=10; // fill-in only
 
-          const hasOverride = dropBackReady||hasExplicitTask;
-
-          // CORE TIME RULE: 25+ days OR never visited OR has override
-          const neverVisited = !o.lastVisit;
-          const isDue = daysSince>=25;
-          const eligible = neverVisited||isDue||hasOverride;
-
-          if(!eligible) return null;
-
-          // SCORING — higher = more urgent
-          let score = 0;
-
-          // Time urgency
-          if(daysSince>=30) score+=40;
-          else if(daysSince>=25) score+=25;
-          else if(neverVisited) score+=35;
-          else if(hasOverride) score+=30;
-
-          // Tier
           if(o.tier==='hot') score+=25;
           else if(o.tier==='warm') score+=10;
-
-          // Top referrer
           if(o.topReferrer) score+=20;
           if((o.referralVolume||0)>20) score+=15;
+          if(hasOverride) score+=15;
 
-          // Has a specific next action (not generic)
-          const genericActions = ['follow up','follow-up',''];
-          const hasSpecificAction = o.nextAction&&!genericActions.includes(nextLower.trim());
-          if(hasSpecificAction&&hasOverride) score+=15;
-
-          return {...o,score,daysSince,neverVisited,hasOverride,dropBackReady,hasExplicitTask};
+          return {...o,score,daysSince,neverVisited,hasOverride,dropBackReady,hasExplicitTask,tier1,tier2};
         })
         .filter(Boolean)
         .sort((a,b)=>b.score-a.score);
 
-      // GEO-CLUSTER by day of week
-      // Mon/Wed/Thu → FM first then HV
-      // Tue → Lewisville first then HV
-      const fm = scored.filter(o=>o.city==='Flower Mound');
-      const hv = scored.filter(o=>o.city==='Highland Village');
-      const lv = scored.filter(o=>o.city==='Lewisville');
-      const other = scored.filter(o=>o.city==='Other');
+      // Geo-cluster
+      const fm=eligible.filter(o=>o.city==='Flower Mound');
+      const hv=eligible.filter(o=>o.city==='Highland Village');
+      const lv=eligible.filter(o=>o.city==='Lewisville');
+      const ot=eligible.filter(o=>o.city==='Other');
 
       let clustered;
-      if(dow===2){ // Tuesday — Lewisville focus
-        clustered=[...lv.slice(0,3),...hv.slice(0,2),...fm.slice(0,2)];
-      } else { // Mon, Wed, Thu — FM focus
-        clustered=[...fm.slice(0,3),...hv.slice(0,2),...lv.slice(0,2)];
-      }
+      if(dow===2) clustered=[...lv,...hv,...fm,...ot];
+      else clustered=[...fm,...hv,...lv,...ot];
 
-      // Remove duplicates (in case office appears in multiple city arrays)
-      const seen = new Set();
-      const deduped = clustered.filter(o=>{
-        if(seen.has(o.id)) return false;
-        seen.add(o.id);
-        return true;
-      });
+      // Dedupe
+      const seen=new Set();
+      const deduped=clustered.filter(o=>{if(seen.has(o.id))return false;seen.add(o.id);return true;});
 
-      const suggested = deduped.slice(0,7).map((o,i)=>({...o,order:i+1,done:false,stopNote:''}));
+      // Take up to 7 — prioritize tier1, fill with tier2
+      const tier1offices=deduped.filter(o=>o.tier1).slice(0,7);
+      const tier2offices=deduped.filter(o=>o.tier2&&!tier1offices.find(t=>t.id===o.id));
+      const combined=[...tier1offices,...tier2offices].slice(0,7);
+      const suggested=combined.map((o,i)=>({...o,order:i+1,done:false,stopNote:''}));
 
-      // Build backup queue — next 5 after the 7 selected
-      const selectedIds = new Set(suggested.map(o=>o.id));
-      const backup = scored
-        .filter(o=>!selectedIds.has(o.id))
-        .slice(0,5)
-        .map((o,i)=>({...o,order:8+i,done:false,stopNote:''}));
+      // Backup queue
+      const selectedIds=new Set(suggested.map(o=>o.id));
+      const backup=deduped.filter(o=>!selectedIds.has(o.id)).slice(0,8).map((o,i)=>({...o,order:8+i,done:false,stopNote:''}));
+
+      // Coming due this week (15-24 days)
+      const comingDueList=offices
+        .filter(o=>{
+          const n=o.name.toLowerCase();
+          if(BLOCKED.some(b=>n.includes(b))||ON_HOLD.some(h=>n.includes(h))) return false;
+          if(o.status==='Do Not Target'||o.status==='On Hold - Pending Info') return false;
+          if(!o.lastVisit) return false;
+          const d=Math.floor((now-new Date(o.lastVisit))/864e5);
+          return d>=15&&d<25;
+        })
+        .map(o=>({...o,daysSince:Math.floor((now-new Date(o.lastVisit))/864e5)}))
+        .sort((a,b)=>b.daysSince-a.daysSince)
+        .slice(0,5);
 
       setSmartPlan(suggested);
       setSmartPlanQueue(backup);
-    }catch(e){
-      console.error('smart plan error:',e);
-    }
+      setComingDue(comingDueList);
+    }catch(e){console.error('smart plan error:',e);}
     setPlanLoading(false);
   }
 
@@ -290,6 +267,14 @@ export default function Home() {
       setRoute(smartPlan.map((o,i)=>({...o,order:i+1,done:false})));
       setSmartPlan(null);
       setSmartPlanQueue([]);
+    }
+  }
+
+  function addToSmartPlan(office){
+    if(smartPlan&&!smartPlan.find(s=>s.id===office.id)){
+      const updated=[...smartPlan,{...office,order:smartPlan.length+1,done:false,stopNote:''}];
+      setSmartPlan(updated);
+      setSmartPlanSearch('');
     }
   }
 
@@ -533,7 +518,7 @@ export default function Home() {
                             <div style={{fontSize:11,fontWeight:600,textTransform:'uppercase',letterSpacing:'0.1em',color:SAGE}}>Smart Plan — {smartPlan.length} stops · {new Date().toLocaleDateString('en-US',{weekday:'long'})}</div>
                             <div style={{display:'flex',gap:8}}>
                               <button style={{...s.btnPrimary,...s.btnSm}} onClick={acceptSmartPlan}>Accept Route</button>
-                              <button style={{...s.btnSecondary,...s.btnSm}} onClick={()=>setSmartPlan(null)}>Dismiss</button>
+                              <button style={{...s.btnSecondary,...s.btnSm}} onClick={()=>{setSmartPlan(null);setSmartPlanQueue([]);setComingDue([]);}}>Dismiss</button>
                             </div>
                           </div>
                           {smartPlan.map((o,i)=>(
@@ -573,6 +558,58 @@ export default function Home() {
                                   style={{cursor:'pointer',color:'#C4B49E',fontSize:15,fontWeight:700,marginTop:2,lineHeight:1}}
                                 >✕</span>
                               </div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+
+                      {/* MANUAL ADD TO PLAN */}
+                      <div style={{marginTop:12,paddingTop:12,borderTop:'1px solid rgba(92,127,89,0.2)'}}>
+                        <div style={{fontSize:10,fontWeight:600,textTransform:'uppercase',letterSpacing:'0.08em',color:SAGE,marginBottom:8}}>Add Another Office</div>
+                        <div style={{position:'relative'}}>
+                          <input
+                            style={{...s.input,marginBottom:0,fontSize:12}}
+                            value={smartPlanSearch}
+                            onChange={e=>setSmartPlanSearch(e.target.value)}
+                            placeholder="Search any office to add..."
+                          />
+                          {smartPlanSearch.length>1&&(
+                            <div style={{position:'absolute',top:'100%',left:0,right:0,background:'#FDFCFA',border:'1px solid #DDD5C4',borderRadius:8,zIndex:60,maxHeight:160,overflowY:'auto',marginTop:4,boxShadow:'0 4px 12px rgba(0,0,0,0.08)'}}>
+                              {offices
+                                .filter(o=>
+                                  o.status!=='Do Not Target'&&
+                                  o.status!=='On Hold - Pending Info'&&
+                                  !['irving kids dentist','shine and sparkle'].some(b=>o.name.toLowerCase().includes(b))&&
+                                  !smartPlan.find(s=>s.id===o.id)&&
+                                  o.name.toLowerCase().includes(smartPlanSearch.toLowerCase())
+                                )
+                                .slice(0,5)
+                                .map(o=>{
+                                  const d=o.lastVisit?Math.floor((Date.now()-new Date(o.lastVisit))/864e5):null;
+                                  return(
+                                    <div key={o.id} onClick={()=>addToSmartPlan(o)} style={{padding:'9px 14px',cursor:'pointer',borderBottom:'1px solid #EDE6D6',fontSize:13}} onMouseEnter={e=>e.currentTarget.style.background='#F5EFE6'} onMouseLeave={e=>e.currentTarget.style.background='transparent'}>
+                                      <div style={{fontWeight:500}}>{o.name}</div>
+                                      <div style={{fontSize:10,color:'#7A6E64'}}>{o.city} · {d===null?'Never visited':d+'d ago'} · {o.tier}</div>
+                                    </div>
+                                  );
+                                })
+                              }
+                            </div>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* COMING DUE THIS WEEK */}
+                      {comingDue.length>0&&(
+                        <div style={{marginTop:12,paddingTop:12,borderTop:'1px solid rgba(92,127,89,0.2)'}}>
+                          <div style={{fontSize:10,fontWeight:600,textTransform:'uppercase',letterSpacing:'0.08em',color:'#A07840',marginBottom:8}}>Coming Due This Week</div>
+                          {comingDue.map(o=>(
+                            <div key={o.id} style={{display:'flex',alignItems:'center',justifyContent:'space-between',padding:'6px 0',borderBottom:'1px solid #EDE6D6',fontSize:12}}>
+                              <div>
+                                <div style={{fontWeight:500,color:'#1A1410'}}>{o.name}</div>
+                                <div style={{fontSize:10,color:'#7A6E64'}}>{o.city} · {o.daysSince}d ago</div>
+                              </div>
+                              <button style={{...s.btnSecondary,...s.btnSm,fontSize:10}} onClick={()=>addToSmartPlan(o)}>+ Add</button>
                             </div>
                           ))}
                         </div>
