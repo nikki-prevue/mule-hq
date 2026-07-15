@@ -483,29 +483,31 @@ export default function Home() {
                           Friday Admin Day — No field visits. Focus on route planning, Referral Lab updates, and supply prep.
                         </div>
                       ):(
-                      <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:12}}>
-                        <div style={{fontSize:11,fontWeight:600,textTransform:'uppercase',letterSpacing:'0.1em',color:SAGE}}>Smart Plan — {smartPlan.length} suggested stops · {new Date().toLocaleDateString('en-US',{weekday:'long'})}</div>
-                        <div style={{display:'flex',gap:8}}>
-                          <button style={{...s.btnPrimary,...s.btnSm}} onClick={acceptSmartPlan}>Accept Route</button>
-                          <button style={{...s.btnSecondary,...s.btnSm}} onClick={()=>setSmartPlan(null)}>Dismiss</button>
-                        </div>
-                      </div>
-                      {smartPlan.map((o,i)=>(
-                        <div key={o.id} style={{display:'flex',alignItems:'center',gap:10,padding:'9px 0',borderBottom:i<smartPlan.length-1?'1px solid rgba(92,127,89,0.15)':'none'}}>
-                          <div style={{width:24,height:24,borderRadius:'50%',background:o.hasOpenAction?GOLD:SAGE,color:'white',display:'flex',alignItems:'center',justifyContent:'center',fontSize:10,fontWeight:700,flexShrink:0}}>{i+1}</div>
-                          <div style={{flex:1,minWidth:0}}>
-                            <div style={{fontSize:12,fontWeight:600,color:'#1A1410',whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{o.name}</div>
-                            <div style={{fontSize:10,color:'#7A6E64'}}>{o.city} · {!o.lastVisit?'Never visited':`${o.daysSince}d since last visit`}</div>
-                            {o.hasOpenAction&&o.nextAction&&<div style={{fontSize:10,color:GOLD,fontWeight:500,marginTop:1}}>Action: {o.nextAction.substring(0,50)}</div>}
+                        <div>
+                          <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:12}}>
+                            <div style={{fontSize:11,fontWeight:600,textTransform:'uppercase',letterSpacing:'0.1em',color:SAGE}}>Smart Plan — {smartPlan.length} stops · {new Date().toLocaleDateString('en-US',{weekday:'long'})}</div>
+                            <div style={{display:'flex',gap:8}}>
+                              <button style={{...s.btnPrimary,...s.btnSm}} onClick={acceptSmartPlan}>Accept Route</button>
+                              <button style={{...s.btnSecondary,...s.btnSm}} onClick={()=>setSmartPlan(null)}>Dismiss</button>
+                            </div>
                           </div>
-                          <div style={{display:'flex',flexDirection:'column',alignItems:'flex-end',gap:3}}>
-                            <span style={{fontSize:9,fontWeight:700,padding:'2px 7px',borderRadius:10,background:o.tier==='hot'?'rgba(193,123,90,0.12)':'rgba(160,120,64,0.12)',color:o.tier==='hot'?HOT:GOLD,textTransform:'uppercase'}}>{o.tier}</span>
-                            {o.daysSince>=30&&<span style={{fontSize:9,fontWeight:700,color:'#E85C5C',textTransform:'uppercase'}}>Overdue</span>}
-                            {o.hasOpenAction&&<span style={{fontSize:9,fontWeight:700,color:GOLD,textTransform:'uppercase'}}>Action</span>}
-                          </div>
+                          {smartPlan.map((o,i)=>(
+                            <div key={o.id} style={{display:'flex',alignItems:'center',gap:10,padding:'9px 0',borderBottom:i<smartPlan.length-1?'1px solid rgba(92,127,89,0.15)':'none'}}>
+                              <div style={{width:24,height:24,borderRadius:'50%',background:o.hasOpenAction?GOLD:SAGE,color:'white',display:'flex',alignItems:'center',justifyContent:'center',fontSize:10,fontWeight:700,flexShrink:0}}>{i+1}</div>
+                              <div style={{flex:1,minWidth:0}}>
+                                <div style={{fontSize:12,fontWeight:600,color:'#1A1410',whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{o.name}</div>
+                                <div style={{fontSize:10,color:'#7A6E64'}}>{o.city} · {!o.lastVisit?'Never visited':o.daysSince+'d since last visit'}</div>
+                                {o.hasOpenAction&&o.nextAction&&<div style={{fontSize:10,color:GOLD,fontWeight:500,marginTop:1}}>Action: {o.nextAction.substring(0,50)}</div>}
+                              </div>
+                              <div style={{display:'flex',flexDirection:'column',alignItems:'flex-end',gap:3}}>
+                                <span style={{fontSize:9,fontWeight:700,padding:'2px 7px',borderRadius:10,background:o.tier==='hot'?'rgba(193,123,90,0.12)':'rgba(160,120,64,0.12)',color:o.tier==='hot'?HOT:GOLD,textTransform:'uppercase'}}>{o.tier}</span>
+                                {o.daysSince>=30&&<span style={{fontSize:9,fontWeight:700,color:'#E85C5C',textTransform:'uppercase'}}>Overdue</span>}
+                                {o.hasOpenAction&&<span style={{fontSize:9,fontWeight:700,color:GOLD,textTransform:'uppercase'}}>Action</span>}
+                              </div>
+                            </div>
+                          ))}
                         </div>
-                      ))}
-                      </div>)}
+                      )}
                     </div>
                   )}
 
