@@ -679,7 +679,11 @@ export default function Home() {
                             {stop.stopNote&&<div style={{fontSize:11,color:GOLD,marginTop:2,fontStyle:'italic'}}>{stop.stopNote}</div>}
                           </div>
                           {/* ACTIONS */}
-                          <div style={{display:'flex',gap:6,flexShrink:0}}>
+                          <div style={{display:'flex',gap:4,flexShrink:0,alignItems:'center'}}>
+                            <div style={{display:'flex',flexDirection:'column',gap:2,marginRight:2}}>
+                              <span style={{cursor:i===0?'default':'pointer',color:i===0?'#EDE6D6':'#9A8E82',fontSize:11,lineHeight:1,userSelect:'none'}} onClick={()=>{if(i===0)return;const r=[...route];[r[i-1],r[i]]=[r[i],r[i-1]];setRoute(r.map((s,idx)=>({...s,order:idx+1})));}}>▲</span>
+                              <span style={{cursor:i===route.length-1?'default':'pointer',color:i===route.length-1?'#EDE6D6':'#9A8E82',fontSize:11,lineHeight:1,userSelect:'none'}} onClick={()=>{if(i===route.length-1)return;const r=[...route];[r[i],r[i+1]]=[r[i+1],r[i]];setRoute(r.map((s,idx)=>({...s,order:idx+1})));}}>▼</span>
+                            </div>
                             {stop.address&&(
                               <button style={{...s.btnSecondary,...s.btnSm,padding:'5px 10px'}} onClick={()=>window.open(`https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent((stop.address||stop.name)+' '+(stop.city||'')+' TX')}`,'_blank')}>Nav</button>
                             )}
