@@ -97,21 +97,33 @@ export default function Home() {
 
   async function loadAll(){
     try{
-      const [o,v,t,sp,lu]=await Promise.all([
+      const [o,v,t,sp,lu,ro]=await Promise.all([
         fetch('/api/offices').then(r=>r.json()),
         fetch('/api/visits').then(r=>r.json()),
         fetch('/api/tasks').then(r=>r.json()),
         fetch('/api/supplies').then(r=>r.json()),
         fetch('/api/lunches').then(r=>r.json()),
+        fetch('/api/routes').then(r=>r.json()),
       ]);
       setOffices(Array.isArray(o)?o:[]);
       setVisits(Array.isArray(v)?v:[]);
       setTasks(Array.isArray(t)?t:[]);
       setSupplies(Array.isArray(sp)?sp:[]);
       setLunches(Array.isArray(lu)?lu:[]);
+      if(Array.isArray(ro)&&ro.length>0) setRoute(ro);
       // Auto generate briefing once loaded
       generateBriefing(Array.isArray(o)?o:[],Array.isArray(t)?t:[]);
     }catch(e){console.error(e);}
+  }
+
+  async function saveRoute(newRoute) {
+    try {
+      await fetch('/api/routes', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({stops: newRoute})
+      });
+    } catch(e) { console.error('route save error:', e); }
   }
 
   async function generateBriefing(offs,tks){
@@ -262,9 +274,14 @@ export default function Home() {
     setPlanLoading(false);
   }
 
+  function updateRoute(newRoute) {
+    setRoute(newRoute);
+    saveRoute(newRoute);
+  }
+
   function acceptSmartPlan(){
     if(smartPlan&&smartPlan.length>0){
-      setRoute(smartPlan.map((o,i)=>({...o,order:i+1,done:false})));
+      updateRoute(smartPlan.map((o,i)=>({...o,order:i+1,done:false})));
       setSmartPlan(null);
       setSmartPlanQueue([]);
     }
@@ -636,7 +653,7 @@ export default function Home() {
                             (o.city||'').toLowerCase().includes(routeSearch.toLowerCase()))
                           ).slice(0,6).map(o=>(
                             <div key={o.id} onClick={()=>{
-                              setRoute([...route,{...o,order:route.length+1,done:false}]);
+                              updateRoute([...route,{...o,order:route.length+1,done:false}]);
                               setRouteSearch('');
                               setShowRouteSearch(false);
                             }} style={{padding:'10px 14px',cursor:'pointer',borderBottom:'1px solid #EDE6D6',fontSize:13}} onMouseEnter={e=>e.currentTarget.style.background='#F5EFE6'} onMouseLeave={e=>e.currentTarget.style.background='transparent'}>
@@ -681,14 +698,14 @@ export default function Home() {
                           {/* ACTIONS */}
                           <div style={{display:'flex',gap:4,flexShrink:0,alignItems:'center'}}>
                             <div style={{display:'flex',flexDirection:'column',gap:2,marginRight:2}}>
-                              <span style={{cursor:i===0?'default':'pointer',color:i===0?'#EDE6D6':'#9A8E82',fontSize:11,lineHeight:1,userSelect:'none'}} onClick={()=>{if(i===0)return;const r=[...route];[r[i-1],r[i]]=[r[i],r[i-1]];setRoute(r.map((s,idx)=>({...s,order:idx+1})));}}>▲</span>
-                              <span style={{cursor:i===route.length-1?'default':'pointer',color:i===route.length-1?'#EDE6D6':'#9A8E82',fontSize:11,lineHeight:1,userSelect:'none'}} onClick={()=>{if(i===route.length-1)return;const r=[...route];[r[i],r[i+1]]=[r[i+1],r[i]];setRoute(r.map((s,idx)=>({...s,order:idx+1})));}}>▼</span>
+                              <span style={{cursor:i===0?'default':'pointer',color:i===0?'#EDE6D6':'#9A8E82',fontSize:11,lineHeight:1,userSelect:'none'}} onClick={()=>{if(i===0)return;const r=[...route];[r[i-1],r[i]]=[r[i],r[i-1]];updateRoute(r.map((s,idx)=>({...s,order:idx+1})));}}>▲</span>
+                              <span style={{cursor:i===route.length-1?'default':'pointer',color:i===route.length-1?'#EDE6D6':'#9A8E82',fontSize:11,lineHeight:1,userSelect:'none'}} onClick={()=>{if(i===route.length-1)return;const r=[...route];[r[i],r[i+1]]=[r[i+1],r[i]];updateRoute(r.map((s,idx)=>({...s,order:idx+1})));}}>▼</span>
                             </div>
                             {stop.address&&(
                               <button style={{...s.btnSecondary,...s.btnSm,padding:'5px 10px'}} onClick={()=>window.open(`https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent((stop.address||stop.name)+' '+(stop.city||'')+' TX')}`,'_blank')}>Nav</button>
                             )}
-                            <button style={{...s.btnSecondary,...s.btnSm,background:stop.done?'rgba(92,127,89,0.1)':undefined,color:stop.done?SAGE:undefined}} onClick={()=>setRoute(route.map((r,ri)=>ri===i?{...r,done:!r.done}:r))}>{stop.done?'Undo':'Done'}</button>
-                            <span style={{cursor:'pointer',color:'#C4B49E',fontSize:18,lineHeight:1,alignSelf:'center'}} onClick={()=>setRoute(route.filter((_,ri)=>ri!==i))}>×</span>
+                            <button style={{...s.btnSecondary,...s.btnSm,background:stop.done?'rgba(92,127,89,0.1)':undefined,color:stop.done?SAGE:undefined}} onClick={()=>updateRoute(route.map((r,ri)=>ri===i?{...r,done:!r.done}:r))}>{stop.done?'Undo':'Done'}</button>
+                            <span style={{cursor:'pointer',color:'#C4B49E',fontSize:18,lineHeight:1,alignSelf:'center'}} onClick={()=>updateRoute(route.filter((_,ri)=>ri!==i))}>×</span>
                           </div>
                         </div>
                       ))}
