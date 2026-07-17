@@ -617,8 +617,8 @@ You help Nikki plan her day, log field visits, generate EOD emails, create Refer
                       </div>
                       <div style={{display:'flex',gap:3,flexShrink:0,alignItems:'center'}}>
                         <div style={{display:'flex',flexDirection:'column',gap:2}}>
-                          <span style={{cursor:i===0?'default':'pointer',color:i===0?T.border:T.choc3,fontSize:11,lineHeight:1,userSelect:'none'}} onClick={()=>{if(i===0)return;const r=[...route];[r[i-1],r[i]]=[r[i],r[i-1]];updateRoute(r.map((s,idx)=>({...s,order:idx+1})));}}}>▲</span>
-                          <span style={{cursor:i===route.length-1?'default':'pointer',color:i===route.length-1?T.border:T.choc3,fontSize:11,lineHeight:1,userSelect:'none'}} onClick={()=>{if(i===route.length-1)return;const r=[...route];[r[i],r[i+1]]=[r[i+1],r[i]];updateRoute(r.map((s,idx)=>({...s,order:idx+1})));}}}>▼</span>
+                          <span style={{cursor:i===0?'default':'pointer',color:i===0?T.border:T.choc3,fontSize:11,lineHeight:1,userSelect:'none'}} onClick={()=>{if(i===0)return;const r=[...route];[r[i-1],r[i]]=[r[i],r[i-1]];updateRoute(r.map((s,idx)=>({...s,order:idx+1})));}}>▲</span>
+                          <span style={{cursor:i===route.length-1?'default':'pointer',color:i===route.length-1?T.border:T.choc3,fontSize:11,lineHeight:1,userSelect:'none'}} onClick={()=>{if(i===route.length-1)return;const r=[...route];[r[i],r[i+1]]=[r[i+1],r[i]];updateRoute(r.map((s,idx)=>({...s,order:idx+1})));}}>▼</span>
                         </div>
                         {stop.address&&<button style={{...s.btnSecondary,...s.btnSm}} onClick={()=>window.open(`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(stop.address+' '+stop.city+' TX')}`,'_blank')}>Nav</button>}
                         <button style={{...s.btnSecondary,...s.btnSm,background:stop.done?T.sageBg:undefined,color:stop.done?T.sage:undefined}} onClick={()=>updateRoute(route.map((r,ri)=>ri===i?{...r,done:!r.done}:r))}>{stop.done?'Undo':'Done'}</button>
