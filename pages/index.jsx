@@ -104,7 +104,7 @@ const modalBox = {
 
 const TABS = ['command','offices','field','vault','calendar','lunches','supplies','reports'];
 const TAB_ICONS = ['⌂','◎','✦','⊟','◷','☕','📦','≡'];
-const TAB_LABELS = ['Command','Offices','Field','Vault','Calendar','Lunches','Supplies','Reports'];
+const TAB_LABELS = ['Today','Offices','Field','Vault','Calendar','Lunches','Supplies','Reports'];
 
 export default function MuleHQ() {
   const [tab, setTab] = useState('command');
@@ -396,6 +396,17 @@ You guide Nikki through her day: suggest routes, capture visit notes, generate p
   const urgentCount=tasks.filter(t=>!t.done&&t.priority==='urgent').length;
   const dueThisWeek=offices.filter(o=>{if(!o.lastVisit)return false;const d=Math.floor((Date.now()-new Date(o.lastVisit))/864e5);return d>=18&&d<32;}).length;
   const lunchPending=lunches.filter(l=>l.status==='Ordered'||l.status==='Pending').length;
+  const ymd=(d)=>`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+  const _wkStart=(()=>{const n=new Date();const day=n.getDay();const diff=(day===0?-6:1)-day;const m=new Date(n);m.setDate(n.getDate()+diff);m.setHours(0,0,0,0);return m;})();
+  const weekDays=Array.from({length:5},(_,i)=>{const d=new Date(_wkStart);d.setDate(_wkStart.getDate()+i);return d;});
+  const _todayKey=ymd(new Date());
+  const _wd3=new Date().toLocaleDateString('en-US',{weekday:'short'}).toLowerCase();
+  const todayAlerts=(()=>{const a=[];const ec={lunch:C.gold,visit:C.sage,admin:C.lav,meeting:C.hot,personal:C.rose,other:C.choc3};
+    calEvents.filter(e=>e.date===_todayKey).forEach(e=>a.push({color:ec[e.type]||C.choc3,title:e.title,sub:e.time||''}));
+    lunches.filter(l=>l.date===_todayKey&&l.status!=='Delivered'&&l.status!=='Done').forEach(l=>a.push({color:C.gold,title:'Confirm lunch: '+l.office,sub:l.restaurant||l.status||''}));
+    offices.filter(o=>o.topReferrer&&isOverdue(o.lastVisit)).forEach(o=>a.push({color:C.hot,title:'Top referrer overdue: '+o.name,sub:'Last touch '+daysAgo(o.lastVisit)}));
+    route.forEach(st=>{const off=offices.find(o=>o.id===st.id||o.name===st.name);const cd=off&&off.closedDays;if(cd&&cd.toLowerCase().includes(_wd3))a.push({color:C.lav,title:st.name+' may be closed today',sub:'Closed '+cd});});
+    return a;})();
   const filteredOffices=offices.filter(o=>{const ms=officeSearch.toLowerCase();return(!ms||o.name.toLowerCase().includes(ms)||(o.doctor||'').toLowerCase().includes(ms)||(o.contact||'').toLowerCase().includes(ms))&&(!tierFilter||o.tier===tierFilter)&&(!cityFilter||o.city===cityFilter);});
 
   const EVENT_COLORS = {lunch:'#C9A96E',visit:'#5A9B6E',admin:'#9B8EC4',meeting:'#D4634A',personal:'#C47A8A',other:'#7A6050'};
@@ -441,6 +452,39 @@ You guide Nikki through her day: suggest routes, capture visit notes, generate p
         {/* ══ COMMAND ══════════════════════════════════════════ */}
         {tab==='command'&&(
           <div>
+            {/* WEEK AT A GLANCE */}
+            <div style={glassCard()}>
+              <div style={cardLabel}>This Week at a Glance</div>
+              <div style={{display:'grid',gridTemplateColumns:'repeat(5,1fr)',gap:8}}>
+                {weekDays.map((d,i)=>{const key=ymd(d);const isT=d.toDateString()===new Date().toDateString();const vC=visits.filter(v=>new Date(v.date).toDateString()===d.toDateString()).length;const evs=calEvents.filter(e=>e.date===key);const luC=lunches.filter(l=>l.date===key).length;return (
+                  <div key={i} onClick={()=>{setCalDate(new Date(d));setSelectedDay(key);setTab('calendar');}} style={{cursor:'pointer',textAlign:'center',padding:'10px 4px',borderRadius:12,background:isT?`${C.gold}22`:'rgba(255,255,255,0.3)',border:isT?`1.5px solid ${C.gold}`:'1px solid rgba(255,255,255,0.4)'}}>
+                    <div style={{fontSize:10,fontWeight:800,textTransform:'uppercase',letterSpacing:'0.06em',color:isT?C.goldDark:C.choc3}}>{d.toLocaleDateString('en-US',{weekday:'short'})}</div>
+                    <div style={{fontFamily:"'Playfair Display',serif",fontSize:20,fontWeight:700,color:C.choc,lineHeight:1.2}}>{d.getDate()}</div>
+                    <div style={{display:'flex',gap:3,justifyContent:'center',marginTop:4,minHeight:8}}>
+                      {vC>0&&<div style={{width:6,height:6,borderRadius:'50%',background:C.sage}}></div>}
+                      {luC>0&&<div style={{width:6,height:6,borderRadius:'50%',background:C.gold}}></div>}
+                      {evs.filter(e=>e.type!=='lunch').length>0&&<div style={{width:6,height:6,borderRadius:'50%',background:C.lav}}></div>}
+                    </div>
+                  </div>
+                );})}
+              </div>
+            </div>
+
+            {todayAlerts.length>0&&(
+              <div style={glassCard()}>
+                <div style={cardLabel}>Today's Radar</div>
+                {todayAlerts.map((a,i)=>(
+                  <div key={i} style={{display:'flex',alignItems:'flex-start',gap:9,padding:'8px 0',borderBottom:i<todayAlerts.length-1?'1px solid rgba(255,255,255,0.4)':'none'}}>
+                    <div style={{width:7,height:7,borderRadius:'50%',background:a.color,flexShrink:0,marginTop:5}}></div>
+                    <div style={{flex:1,minWidth:0}}>
+                      <div style={{fontSize:13,fontWeight:700,color:C.choc}}>{a.title}</div>
+                      {a.sub&&<div style={{fontSize:11,fontWeight:500,color:C.choc3}}>{a.sub}</div>}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+
             {urgentCount>0&&(
               <div style={{...glass({borderRadius:14}),padding:'12px 16px',marginBottom:14,display:'flex',alignItems:'flex-start',gap:9,border:`1px solid ${C.hot}33`,background:`rgba(212,99,74,0.08)`}}>
                 <div style={{width:8,height:8,borderRadius:'50%',background:C.hot,flexShrink:0,marginTop:4}}></div>
