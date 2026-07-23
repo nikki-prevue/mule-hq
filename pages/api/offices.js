@@ -32,6 +32,12 @@ function mapOut(o) {
     lastVisit: o.last_visit || null,
     referralVolume: o.referral_volume || 0,
     topReferrer: o.top_referrer || false,
+    hours: o.hours || '',
+    closedDays: o.closed_days || '',
+    territory: o.territory || '',
+    atAGlance: o.at_a_glance || '',
+    openFollowUps: o.open_follow_ups || '',
+    dso: o.dso || '',
   };
 }
 
@@ -50,6 +56,12 @@ function mapIn(data) {
   if (data.lastVisit !== undefined) mapped.last_visit = data.lastVisit;
   if (data.referralVolume !== undefined) mapped.referral_volume = data.referralVolume;
   if (data.topReferrer !== undefined) mapped.top_referrer = data.topReferrer;
+  if (data.hours !== undefined) mapped.hours = data.hours;
+  if (data.closedDays !== undefined) mapped.closed_days = data.closedDays;
+  if (data.territory !== undefined) mapped.territory = data.territory;
+  if (data.atAGlance !== undefined) mapped.at_a_glance = data.atAGlance;
+  if (data.openFollowUps !== undefined) mapped.open_follow_ups = data.openFollowUps;
+  if (data.dso !== undefined) mapped.dso = data.dso;
   return mapped;
 }
 
