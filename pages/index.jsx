@@ -116,6 +116,7 @@ export default function MuleHQ() {
   const [route, setRoute] = useState([]);
   const [doctors, setDoctors] = useState([]);
   const [newDoctorName, setNewDoctorName] = useState('');
+  const [briefRunning, setBriefRunning] = useState(false);
   const [briefing, setBriefing] = useState('Loading your morning briefing...');
   const [time, setTime] = useState('');
   const [phase, setPhase] = useState('');
@@ -252,6 +253,16 @@ export default function MuleHQ() {
     if(!newOffice.name) return;
     await fetch('/api/offices',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(newOffice)});
     setShowAddOffice(false); setNewOffice({name:'',doctor:'',city:'Flower Mound',tier:'warm',address:'',phone:'',email:'',website:'',contact:'',notes:''}); await loadAll();
+  }
+  async function briefRoute(){
+    if(briefRunning||route.length===0){ if(route.length===0) alert('Add stops to your route first, then Brief Route.'); return; }
+    setBriefRunning(true);
+    try{
+      const r=await fetch('/api/brief',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({offices:route.map(st=>st.name)})});
+      const d=await r.json(); await loadAll();
+      alert(d.briefed?`Briefed ${d.briefed} route stop(s). Tap an office to see its At a Glance.`:'No route stops to brief.');
+    }catch(e){ alert('Brief failed - try again in a moment.'); }
+    setBriefRunning(false);
   }
   async function addDoctor(){ if(!newDoctorName.trim()||!selectedOffice) return; await fetch('/api/doctors',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({office:selectedOffice.name,name:newDoctorName.trim()})}); setNewDoctorName(''); await loadAll(); }
   async function updateOfficeField(id,field,value) { await fetch('/api/offices',{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({id,[field]:value})}); await loadAll(); }
@@ -526,6 +537,7 @@ You guide Nikki through her day: suggest routes, capture visit notes, generate p
                     }}>Google Maps</span>
                   )}
                   <span style={{fontSize:12,fontWeight:700,color:C.goldDark,cursor:'pointer'}} onClick={generateSmartPlan}>{planLoading?'Planning...':'Smart Plan'}</span>
+                  <span style={{fontSize:12,fontWeight:700,color:C.sage,cursor:'pointer'}} onClick={briefRoute}>{briefRunning?'Briefing...':'Brief Route'}</span>
                   <span style={{fontSize:12,fontWeight:700,color:C.goldDark,cursor:'pointer'}} onClick={()=>setShowRouteSearch(!showRouteSearch)}>+ Add</span>
                 </div>
               </div>
