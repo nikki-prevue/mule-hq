@@ -103,7 +103,7 @@ const modalBox = {
 };
 
 const TABS = ['command','offices','field','vault','calendar','lunches','supplies','reports'];
-const TAB_ICONS = ['⌂','◎','✦','⊟','◷','☕','📦','≡'];
+const TAB_ICONS = ['⌂','◎','✦','⊟','◷','◇','▤','≡'];
 const TAB_LABELS = ['Today','Offices','Field','Vault','Calendar','Lunches','Supplies','Reports'];
 
 export default function MuleHQ() {
@@ -523,7 +523,7 @@ You guide Nikki through her day: suggest routes, capture visit notes, generate p
                       const stops=route.sort((a,b)=>a.order-b.order).map(s=>encodeURIComponent((s.address||s.name)+' '+(s.city||'')+' TX'));
                       const o=stops[0],d=stops[stops.length-1],w=stops.slice(1,-1).join('|');
                       window.open(`https://www.google.com/maps/dir/?api=1&origin=${o}&destination=${d}${w?'&waypoints='+w:''}&travelmode=driving`,'_blank');
-                    }}>Google Maps ↗</span>
+                    }}>Google Maps</span>
                   )}
                   <span style={{fontSize:12,fontWeight:700,color:C.goldDark,cursor:'pointer'}} onClick={generateSmartPlan}>{planLoading?'Planning...':'Smart Plan'}</span>
                   <span style={{fontSize:12,fontWeight:700,color:C.goldDark,cursor:'pointer'}} onClick={()=>setShowRouteSearch(!showRouteSearch)}>+ Add</span>
@@ -633,7 +633,7 @@ You guide Nikki through her day: suggest routes, capture visit notes, generate p
                       const stops=route.sort((a,b)=>a.order-b.order).map(s=>encodeURIComponent((s.address||s.name)+' '+(s.city||'')+' TX'));
                       const o=stops[0],d=stops[stops.length-1],w=stops.slice(1,-1).join('|');
                       window.open(`https://www.google.com/maps/dir/?api=1&origin=${o}&destination=${d}${w?'&waypoints='+w:''}&travelmode=driving`,'_blank');
-                    }}>Open Full Route ↗</button>
+                    }}>Open Full Route</button>
                   </div>
                 </div>
               )}
@@ -1006,7 +1006,7 @@ You guide Nikki through her day: suggest routes, capture visit notes, generate p
                   <div style={cardLabel}>EOD Email Draft</div>
                   <div style={{display:'flex',gap:12}}>
                     <span style={{fontSize:12,fontWeight:700,color:C.goldDark,cursor:'pointer'}} onClick={()=>navigator.clipboard.writeText(eodDraft)}>Copy</span>
-                    <span style={{fontSize:12,fontWeight:700,color:C.goldDark,cursor:'pointer'}} onClick={()=>window.open('https://outlook.office.com/mail/new','_blank')}>Outlook ↗</span>
+                    <span style={{fontSize:12,fontWeight:700,color:C.goldDark,cursor:'pointer'}} onClick={()=>window.open('https://outlook.office.com/mail/new','_blank')}>Outlook </span>
                   </div>
                 </div>
                 <div style={{fontSize:13,fontWeight:500,color:C.choc,lineHeight:1.9,whiteSpace:'pre-wrap',background:'rgba(255,255,255,0.5)',padding:16,borderRadius:12,border:'1px solid rgba(255,255,255,0.5)'}}>{eodDraft}</div>
