@@ -50,6 +50,21 @@ export default async function handler(req, res) {
         date: body.date || new Date().toISOString().split('T')[0],
       };
       const data = await query('POST', 'visits', mapped);
+      // propagate touchpoint to the office profile (notes + last visit/attempt + next action)
+      try {
+        if (mapped.office) {
+          const offs = await query('GET', `offices?name=eq.${encodeURIComponent(mapped.office)}&select=id,notes`);
+          if (offs && offs[0]) {
+            const line = mapped.notes || '';
+            const newNotes = line ? (offs[0].notes ? line + '\n' + offs[0].notes : line) : offs[0].notes;
+            const patch = { notes: newNotes };
+            if (body.attempted) patch.last_attempt = mapped.date;
+            else patch.last_visit = mapped.date;
+            if (mapped.next_action) patch.next_action = mapped.next_action;
+            await query('PATCH', `offices?id=eq.${offs[0].id}`, patch);
+          }
+        }
+      } catch (e) { console.error('office propagation:', e.message); }
       return res.status(200).json(mapOut(data[0] || {}));
     }
   } catch (e) {

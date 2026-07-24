@@ -38,6 +38,7 @@ function mapOut(o) {
     atAGlance: o.at_a_glance || '',
     openFollowUps: o.open_follow_ups || '',
     dso: o.dso || '',
+    lastAttempt: o.last_attempt || null,
   };
 }
 
@@ -62,6 +63,7 @@ function mapIn(data) {
   if (data.atAGlance !== undefined) mapped.at_a_glance = data.atAGlance;
   if (data.openFollowUps !== undefined) mapped.open_follow_ups = data.openFollowUps;
   if (data.dso !== undefined) mapped.dso = data.dso;
+  if (data.lastAttempt !== undefined) mapped.last_attempt = data.lastAttempt;
   return mapped;
 }
 
