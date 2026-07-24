@@ -106,6 +106,8 @@ const TABS = ['command','offices','field','vault','calendar','lunches','supplies
 const TAB_ICONS = ['⌂','◎','✦','⊟','◷','◇','▤','≡'];
 const TAB_LABELS = ['Today','Offices','Field','Vault','Calendar','Lunches','Supplies','Reports'];
 
+function haversine(a,b){const R=6371,r=Math.PI/180;const dLa=(b.lat-a.lat)*r,dLo=(b.lon-a.lon)*r;const s1=Math.sin(dLa/2)**2+Math.cos(a.lat*r)*Math.cos(b.lat*r)*Math.sin(dLo/2)**2;return 2*R*Math.asin(Math.sqrt(s1));}
+
 export default function MuleHQ() {
   const [tab, setTab] = useState('command');
   const [offices, setOffices] = useState([]);
@@ -117,6 +119,7 @@ export default function MuleHQ() {
   const [doctors, setDoctors] = useState([]);
   const [newDoctorName, setNewDoctorName] = useState('');
   const [briefRunning, setBriefRunning] = useState(false);
+  const [optimizing, setOptimizing] = useState(false);
   const [briefing, setBriefing] = useState('Loading your morning briefing...');
   const [time, setTime] = useState('');
   const [phase, setPhase] = useState('');
@@ -253,6 +256,38 @@ export default function MuleHQ() {
     if(!newOffice.name) return;
     await fetch('/api/offices',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(newOffice)});
     setShowAddOffice(false); setNewOffice({name:'',doctor:'',city:'Flower Mound',tier:'warm',address:'',phone:'',email:'',website:'',contact:'',notes:''}); await loadAll();
+  }
+  async function optimizeRoute(){
+    if(optimizing||route.length<2){ if(route.length<2) alert('Add at least 2 stops to optimize.'); return; }
+    setOptimizing(true);
+    try{
+      const stops=route.map(st=>({...st}));
+      for(const st of stops){
+        const off=offices.find(o=>o.id===st.id||o.name===st.name);
+        let lat=(off&&off.lat!=null)?off.lat:st.lat, lon=(off&&off.lon!=null)?off.lon:st.lon;
+        const addr=st.address||(off&&off.address)||'';
+        if((lat==null||lon==null)&&addr){
+          try{
+            const q=encodeURIComponent(addr+' '+(st.city||(off&&off.city)||'')+' TX');
+            const r=await fetch(`https://nominatim.openstreetmap.org/search?format=json&limit=1&q=${q}`,{headers:{'Accept':'application/json'}});
+            const d=await r.json();
+            if(d&&d[0]){ lat=parseFloat(d[0].lat); lon=parseFloat(d[0].lon); if(off) await fetch('/api/offices',{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({id:off.id,lat,lon})}); }
+          }catch(e){}
+          await new Promise(res=>setTimeout(res,1100));
+        }
+        st._lat=lat; st._lon=lon;
+      }
+      const geo=stops.filter(st=>st._lat!=null&&st._lon!=null);
+      const nogeo=stops.filter(st=>st._lat==null||st._lon==null);
+      if(geo.length<2){ alert('Could not locate enough stops. Make sure they have addresses, then try again.'); setOptimizing(false); return; }
+      let start=geo.reduce((a,b)=>b._lon<a._lon?b:a);
+      const ordered=[start]; const rest=geo.filter(st=>st!==start);
+      while(rest.length){ const last=ordered[ordered.length-1]; let bi=0,bd=Infinity; rest.forEach((st,i)=>{const dd=haversine({lat:last._lat,lon:last._lon},{lat:st._lat,lon:st._lon}); if(dd<bd){bd=dd;bi=i;}}); ordered.push(rest.splice(bi,1)[0]); }
+      const finalStops=[...ordered,...nogeo].map((st,i)=>({...st,order:i+1}));
+      updateRoute(finalStops);
+      alert('Route optimized west-to-east, no zig-zag'+(nogeo.length?(' ('+nogeo.length+' stop(s) had no address and were left at the end)'):'')+'. Tap Google Maps to navigate.');
+    }catch(e){ alert('Optimize failed - try again in a moment.'); }
+    setOptimizing(false);
   }
   async function briefRoute(){
     if(briefRunning||route.length===0){ if(route.length===0) alert('Add stops to your route first, then Brief Route.'); return; }
@@ -536,6 +571,7 @@ You guide Nikki through her day: suggest routes, capture visit notes, generate p
                       window.open(`https://www.google.com/maps/dir/?api=1&origin=${o}&destination=${d}${w?'&waypoints='+w:''}&travelmode=driving`,'_blank');
                     }}>Google Maps</span>
                   )}
+                  <span style={{fontSize:12,fontWeight:700,color:C.sage,cursor:'pointer'}} onClick={optimizeRoute}>{optimizing?'Optimizing...':'Optimize'}</span>
                   <span style={{fontSize:12,fontWeight:700,color:C.goldDark,cursor:'pointer'}} onClick={generateSmartPlan}>{planLoading?'Planning...':'Smart Plan'}</span>
                   <span style={{fontSize:12,fontWeight:700,color:C.sage,cursor:'pointer'}} onClick={briefRoute}>{briefRunning?'Briefing...':'Brief Route'}</span>
                   <span style={{fontSize:12,fontWeight:700,color:C.goldDark,cursor:'pointer'}} onClick={()=>setShowRouteSearch(!showRouteSearch)}>+ Add</span>
