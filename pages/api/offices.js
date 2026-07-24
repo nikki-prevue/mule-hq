@@ -39,6 +39,8 @@ function mapOut(o) {
     openFollowUps: o.open_follow_ups || '',
     dso: o.dso || '',
     lastAttempt: o.last_attempt || null,
+    lat: o.lat != null ? o.lat : null,
+    lon: o.lon != null ? o.lon : null,
   };
 }
 
@@ -64,6 +66,8 @@ function mapIn(data) {
   if (data.openFollowUps !== undefined) mapped.open_follow_ups = data.openFollowUps;
   if (data.dso !== undefined) mapped.dso = data.dso;
   if (data.lastAttempt !== undefined) mapped.last_attempt = data.lastAttempt;
+  if (data.lat !== undefined) mapped.lat = data.lat;
+  if (data.lon !== undefined) mapped.lon = data.lon;
   return mapped;
 }
 
