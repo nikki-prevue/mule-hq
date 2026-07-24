@@ -123,14 +123,7 @@ export default function MuleHQ() {
 
   // Calendar
   const [calDate, setCalDate] = useState(new Date());
-  const [calEvents, setCalEvents] = useState([
-    {id:'e1', date:'2026-07-22', title:'Appreciation Lunch — Active Dental', type:'lunch', time:'12:00 PM'},
-    {id:'e2', date:'2026-07-22', title:'Appreciation Lunch — Dental Depot HV', type:'lunch', time:'12:00 PM'},
-    {id:'e3', date:'2026-07-20', title:'Appreciation Lunch — Northlake Dental', type:'lunch', time:'12:45 PM'},
-    {id:'e4', date:'2026-07-22', title:'Appreciation Lunch — Northlake Dental', type:'lunch', time:'12:45 PM'},
-    {id:'e5', date:'2026-07-18', title:'Weekend', type:'personal', time:''},
-    {id:'e6', date:'2026-07-25', title:'Friday Admin Day', type:'admin', time:''},
-  ]);
+  const [calEvents, setCalEvents] = useState([]);
   const [showAddEvent, setShowAddEvent] = useState(false);
   const [newEvent, setNewEvent] = useState({title:'',date:'',time:'',type:'visit',notes:''});
   const [selectedDay, setSelectedDay] = useState(null);
@@ -195,7 +188,7 @@ export default function MuleHQ() {
 
   async function loadAll() {
     try {
-      const [o, v, t, sp, lu, ro, dc] = await Promise.all([
+      const [o, v, t, sp, lu, ro, dc, evd] = await Promise.all([
         fetch('/api/offices').then(r => r.json()),
         fetch('/api/visits').then(r => r.json()),
         fetch('/api/tasks').then(r => r.json()),
@@ -203,6 +196,7 @@ export default function MuleHQ() {
         fetch('/api/lunches').then(r => r.json()),
         fetch('/api/routes').then(r => r.json()),
         fetch('/api/doctors').then(r => r.json()),
+        fetch('/api/events').then(r => r.json()),
       ]);
       const offs = Array.isArray(o) ? o : [];
       const vis = Array.isArray(v) ? v : [];
@@ -212,7 +206,7 @@ export default function MuleHQ() {
       const rt = Array.isArray(ro) ? ro : [];
       const dcs = Array.isArray(dc) ? dc : [];
       setOffices(offs); setVisits(vis); setTasks(tks);
-      setSupplies(sups); setLunches(lun); setDoctors(dcs);
+      setSupplies(sups); setLunches(lun); setDoctors(dcs); setCalEvents(Array.isArray(evd)?evd:[]);
       if (rt.length > 0) setRoute(rt);
       generateBriefing(offs, tks);
     } catch (e) { console.error(e); }
@@ -894,7 +888,7 @@ You guide Nikki through her day: suggest routes, capture visit notes, generate p
                         {ev.notes&&<div style={{fontSize:11,fontWeight:500,color:C.choc3,marginTop:2}}>{ev.notes}</div>}
                       </div>
                       <span style={badge(EVENT_COLORS[ev.type]||C.choc3)}>{ev.type}</span>
-                      <span style={{cursor:'pointer',color:C.choc3,fontSize:16}} onClick={()=>setCalEvents(p=>p.filter(e=>e.id!==ev.id))}>×</span>
+                      <span style={{cursor:'pointer',color:C.choc3,fontSize:16}} onClick={async()=>{await fetch('/api/events',{method:'DELETE',headers:{'Content-Type':'application/json'},body:JSON.stringify({id:ev.id})});await loadAll();}}>×</span>
                     </div>
                   ))}
                 </div>
@@ -1286,7 +1280,7 @@ You guide Nikki through her day: suggest routes, capture visit notes, generate p
             </div>
             <div style={label}>Notes</div><textarea style={{...input,minHeight:60}} value={newEvent.notes} onChange={e=>setNewEvent({...newEvent,notes:e.target.value})} placeholder="Additional details..."/>
             <div style={{display:'flex',gap:8}}>
-              <button style={btn.primary} onClick={()=>{if(!newEvent.title||!newEvent.date)return;setCalEvents(p=>[...p,{...newEvent,id:'e'+Date.now()}]);setShowAddEvent(false);setNewEvent({title:'',date:'',time:'',type:'visit',notes:''});}}>Add Event</button>
+              <button style={btn.primary} onClick={async()=>{if(!newEvent.title||!newEvent.date)return;await fetch('/api/events',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(newEvent)});setShowAddEvent(false);setNewEvent({title:'',date:'',time:'',type:'visit',notes:''});await loadAll();}}>Add Event</button>
               <button style={btn.secondary} onClick={()=>setShowAddEvent(false)}>Cancel</button>
             </div>
           </div>
