@@ -114,6 +114,8 @@ export default function MuleHQ() {
   const [supplies, setSupplies] = useState([]);
   const [lunches, setLunches] = useState([]);
   const [route, setRoute] = useState([]);
+  const [doctors, setDoctors] = useState([]);
+  const [newDoctorName, setNewDoctorName] = useState('');
   const [briefing, setBriefing] = useState('Loading your morning briefing...');
   const [time, setTime] = useState('');
   const [phase, setPhase] = useState('');
@@ -193,13 +195,14 @@ export default function MuleHQ() {
 
   async function loadAll() {
     try {
-      const [o, v, t, sp, lu, ro] = await Promise.all([
+      const [o, v, t, sp, lu, ro, dc] = await Promise.all([
         fetch('/api/offices').then(r => r.json()),
         fetch('/api/visits').then(r => r.json()),
         fetch('/api/tasks').then(r => r.json()),
         fetch('/api/supplies').then(r => r.json()),
         fetch('/api/lunches').then(r => r.json()),
         fetch('/api/routes').then(r => r.json()),
+        fetch('/api/doctors').then(r => r.json()),
       ]);
       const offs = Array.isArray(o) ? o : [];
       const vis = Array.isArray(v) ? v : [];
@@ -207,8 +210,9 @@ export default function MuleHQ() {
       const sups = Array.isArray(sp) ? sp : [];
       const lun = Array.isArray(lu) ? lu : [];
       const rt = Array.isArray(ro) ? ro : [];
+      const dcs = Array.isArray(dc) ? dc : [];
       setOffices(offs); setVisits(vis); setTasks(tks);
-      setSupplies(sups); setLunches(lun);
+      setSupplies(sups); setLunches(lun); setDoctors(dcs);
       if (rt.length > 0) setRoute(rt);
       generateBriefing(offs, tks);
     } catch (e) { console.error(e); }
@@ -255,6 +259,7 @@ export default function MuleHQ() {
     await fetch('/api/offices',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(newOffice)});
     setShowAddOffice(false); setNewOffice({name:'',doctor:'',city:'Flower Mound',tier:'warm',address:'',phone:'',email:'',website:'',contact:'',notes:''}); await loadAll();
   }
+  async function addDoctor(){ if(!newDoctorName.trim()||!selectedOffice) return; await fetch('/api/doctors',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({office:selectedOffice.name,name:newDoctorName.trim()})}); setNewDoctorName(''); await loadAll(); }
   async function updateOfficeField(id,field,value) { await fetch('/api/offices',{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({id,[field]:value})}); await loadAll(); }
   async function deleteOffice(id) { if(!confirm('Remove this office from MULE HQ?')) return; await fetch('/api/offices',{method:'DELETE',headers:{'Content-Type':'application/json'},body:JSON.stringify({id})}); setSelectedOffice(null); await loadAll(); }
   async function deleteVisit(id) { if(!confirm('Delete this visit?')) return; await fetch('/api/visits',{method:'DELETE',headers:{'Content-Type':'application/json'},body:JSON.stringify({id})}); setSelectedVisit(null); await loadAll(); }
@@ -279,9 +284,7 @@ export default function MuleHQ() {
     const ts = new Date().toLocaleString('en-US',{month:'short',day:'numeric',hour:'numeric',minute:'2-digit',hour12:true});
     const note = `[${quickNoteType} — ${ts}] ${quickNoteText.trim()}`;
     try {
-      await fetch('/api/visits',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({office:quickNoteOffice,doctor:off?.doctor||'',contact:'',gift:'',notes:note,nextAction:'',tier:off?.tier||'warm',date:new Date().toISOString().split('T')[0]})});
-      const updated = off?.notes ? off.notes+' | '+note : note;
-      await fetch('/api/offices',{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({id:off?.id,notes:updated})});
+      await fetch('/api/visits',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({office:quickNoteOffice,doctor:off?.doctor||'',contact:'',gift:'',notes:note,nextAction:'',tier:off?.tier||'warm',date:new Date().toISOString().split('T')[0],attempted:quickNoteType==='Closed / No Contact'})});
       setQuickNoteOffice(''); setQuickNoteText(''); setQuickNoteType('Call');
       await loadAll();
     } catch(e){}
@@ -730,6 +733,7 @@ You guide Nikki through her day: suggest routes, capture visit notes, generate p
                           <div style={{alignSelf:'center'}}><span style={badge(o.tier==='hot'?C.hot:C.goldDark)}>{o.tier}</span></div>
                           <div style={{alignSelf:'center'}}>
                             <div style={{fontSize:12,fontWeight:700,color:od&&!dnt?'#E85C5C':C.sage}}>{!o.lastVisit?'Never':Math.floor((Date.now()-new Date(o.lastVisit))/864e5)+'d ago'}</div>
+                            {o.lastAttempt&&(!o.lastVisit||new Date(o.lastAttempt)>new Date(o.lastVisit))&&<div style={{fontSize:9,fontWeight:700,color:C.lav,marginTop:2}}>Attempted {new Date(o.lastAttempt).toLocaleDateString('en-US',{month:'short',day:'numeric'})}</div>}
                             {o.referralVolume>0&&<div style={{fontSize:10,fontWeight:700,color:C.goldDark,marginTop:2}}>{o.referralVolume}/yr</div>}
                           </div>
                         </div>
@@ -756,6 +760,7 @@ You guide Nikki through her day: suggest routes, capture visit notes, generate p
                   {offices.filter(o=>o.status!=='Do Not Target').map(o=><option key={o.id} value={o.name}>{o.name}</option>)}
                 </select>
                 <select style={{...input,marginBottom:0,width:150}} value={quickNoteType} onChange={e=>setQuickNoteType(e.target.value)}>
+                  <option value="Visit">Visit (in person)</option><option value="Closed / No Contact">Closed / No Contact</option>
                   <option value="Call">Phone Call</option><option value="Email">Email</option><option value="Text">Text</option>
                   <option value="Lunch Coord">Lunch Coord</option><option value="Dr. Patel Request">Dr. Patel Request</option><option value="Other">Other</option>
                 </select>
@@ -1062,6 +1067,7 @@ You guide Nikki through her day: suggest routes, capture visit notes, generate p
                   <span style={badge(selectedOffice.tier==='hot'?C.hot:C.goldDark)}>{selectedOffice.tier}</span>
                   {selectedOffice.topReferrer&&<span style={badge(C.goldDark)}>Top Referrer</span>}
                   <span style={{fontSize:11,fontWeight:700,color:isOverdue(selectedOffice.lastVisit)?'#E85C5C':C.sage}}>{!selectedOffice.lastVisit?'Never visited':`Last: ${Math.floor((Date.now()-new Date(selectedOffice.lastVisit))/864e5)}d ago`}</span>
+                  {selectedOffice.lastAttempt&&<span style={{fontSize:11,fontWeight:700,color:C.lav}}>Attempted {new Date(selectedOffice.lastAttempt).toLocaleDateString('en-US',{month:'short',day:'numeric'})}</span>}
                 </div>
               </div>
               <span style={{cursor:'pointer',color:C.choc3,fontSize:22}} onClick={()=>setSelectedOffice(null)}>×</span>
@@ -1082,6 +1088,12 @@ You guide Nikki through her day: suggest routes, capture visit notes, generate p
               ))}
               <div style={{gridColumn:'1/-1'}}><div style={label}>Address</div><input style={{...input,marginBottom:0,fontSize:13}} defaultValue={selectedOffice.address||''} placeholder="Full address" onBlur={async(e)=>{if(e.target.value!==(selectedOffice.address||'')){await updateOfficeField(selectedOffice.id,'address',e.target.value);setSelectedOffice({...selectedOffice,address:e.target.value});}}}/></div>
               <div style={{gridColumn:'1/-1'}}><div style={label}>Website</div><input style={{...input,marginBottom:0,fontSize:13}} defaultValue={selectedOffice.website||''} placeholder="https://..." onBlur={async(e)=>{if(e.target.value!==(selectedOffice.website||'')){await updateOfficeField(selectedOffice.id,'website',e.target.value);setSelectedOffice({...selectedOffice,website:e.target.value});}}}/></div>
+              <div><div style={label}>Hours</div><input style={{...input,marginBottom:0,fontSize:13}} defaultValue={selectedOffice.hours||''} placeholder="Mon-Fri 8-5" onBlur={async(e)=>{if(e.target.value!==(selectedOffice.hours||'')){await updateOfficeField(selectedOffice.id,'hours',e.target.value);setSelectedOffice({...selectedOffice,hours:e.target.value});}}}/></div>
+              <div><div style={label}>Closed Days</div><input style={{...input,marginBottom:0,fontSize:13,color:C.hot}} defaultValue={selectedOffice.closedDays||''} placeholder="Mondays, Sat-Sun" onBlur={async(e)=>{if(e.target.value!==(selectedOffice.closedDays||'')){await updateOfficeField(selectedOffice.id,'closedDays',e.target.value);setSelectedOffice({...selectedOffice,closedDays:e.target.value});}}}/></div>
+              <div><div style={label}>Territory</div><input style={{...input,marginBottom:0,fontSize:13}} defaultValue={selectedOffice.territory||''} placeholder="Flower Mound" onBlur={async(e)=>{if(e.target.value!==(selectedOffice.territory||'')){await updateOfficeField(selectedOffice.id,'territory',e.target.value);setSelectedOffice({...selectedOffice,territory:e.target.value});}}}/></div>
+              <div><div style={label}>DSO / Group</div><input style={{...input,marginBottom:0,fontSize:13}} defaultValue={selectedOffice.dso||''} placeholder="Dental Depot..." onBlur={async(e)=>{if(e.target.value!==(selectedOffice.dso||'')){await updateOfficeField(selectedOffice.id,'dso',e.target.value);setSelectedOffice({...selectedOffice,dso:e.target.value});}}}/></div>
+              <div style={{gridColumn:'1/-1'}}><div style={label}>At a Glance</div><textarea style={{...input,marginBottom:0,fontSize:13,minHeight:60}} defaultValue={selectedOffice.atAGlance||''} placeholder="The one-line assistant summary..." onBlur={async(e)=>{if(e.target.value!==(selectedOffice.atAGlance||'')){await updateOfficeField(selectedOffice.id,'atAGlance',e.target.value);setSelectedOffice({...selectedOffice,atAGlance:e.target.value});}}}/></div>
+              <div style={{gridColumn:'1/-1'}}><div style={label}>Open Follow-ups</div><textarea style={{...input,marginBottom:0,fontSize:13,minHeight:60,color:C.sage}} defaultValue={selectedOffice.openFollowUps||''} placeholder="What's owed / pending..." onBlur={async(e)=>{if(e.target.value!==(selectedOffice.openFollowUps||'')){await updateOfficeField(selectedOffice.id,'openFollowUps',e.target.value);setSelectedOffice({...selectedOffice,openFollowUps:e.target.value});}}}/></div>
               <div>
                 <div style={label}>Tier</div>
                 <select style={{...input,marginBottom:0,fontSize:13}} value={selectedOffice.tier} onChange={async(e)=>{await updateOfficeField(selectedOffice.id,'tier',e.target.value);setSelectedOffice({...selectedOffice,tier:e.target.value});}}>
@@ -1091,6 +1103,20 @@ You guide Nikki through her day: suggest routes, capture visit notes, generate p
               <div><div style={label}>Last Gift</div><input style={{...input,marginBottom:0,fontSize:13,color:C.goldDark}} defaultValue={selectedOffice.gift||''} placeholder="Last drop..." onBlur={async(e)=>{if(e.target.value!==(selectedOffice.gift||'')){await updateOfficeField(selectedOffice.id,'gift',e.target.value);setSelectedOffice({...selectedOffice,gift:e.target.value});}}}/></div>
               <div style={{gridColumn:'1/-1'}}><div style={label}>Next Action</div><input style={{...input,marginBottom:0,fontSize:13,color:C.sage}} defaultValue={selectedOffice.nextAction||''} placeholder="Next steps..." onBlur={async(e)=>{if(e.target.value!==(selectedOffice.nextAction||'')){await updateOfficeField(selectedOffice.id,'nextAction',e.target.value);setSelectedOffice({...selectedOffice,nextAction:e.target.value});}}}/></div>
               <div style={{gridColumn:'1/-1'}}><div style={label}>Full Notes</div><textarea style={{...input,marginBottom:0,fontSize:13,minHeight:100}} defaultValue={selectedOffice.notes||''} placeholder="Office intel, Dr. Patel notes, therapy dog, anything important..." onBlur={async(e)=>{if(e.target.value!==(selectedOffice.notes||'')){await updateOfficeField(selectedOffice.id,'notes',e.target.value);setSelectedOffice({...selectedOffice,notes:e.target.value});}}}/></div>
+            </div>
+            <div style={{height:1,background:'rgba(255,255,255,0.5)',margin:'12px 0'}}/>
+            <div style={{marginBottom:12}}>
+              <div style={{fontSize:10,fontWeight:800,textTransform:'uppercase',letterSpacing:'0.1em',color:C.choc3,marginBottom:8}}>Doctors</div>
+              {doctors.filter(d=>d.office===selectedOffice.name).map(d=>(
+                <div key={d.id} style={{display:'flex',justifyContent:'space-between',alignItems:'center',padding:'8px 12px',background:'rgba(255,255,255,0.4)',borderRadius:10,marginBottom:6}}>
+                  <div style={{minWidth:0}}><div style={{fontSize:13,fontWeight:700,color:C.choc}}>{d.name}</div>{(d.specialty||d.notes)&&<div style={{fontSize:11,color:C.choc3}}>{[d.specialty,d.notes].filter(Boolean).join(' \u00b7 ')}</div>}</div>
+                  {d.referralVolume>0&&<span style={badge(C.goldDark)}>{d.referralVolume}/yr</span>}
+                </div>
+              ))}
+              <div style={{display:'flex',gap:8,marginTop:6}}>
+                <input style={{...input,marginBottom:0,fontSize:13,flex:1}} value={newDoctorName} onChange={e=>setNewDoctorName(e.target.value)} placeholder="Add doctor — Dr. Name" onKeyDown={e=>e.key==='Enter'&&addDoctor()}/>
+                <button style={{...btn.secondary,whiteSpace:'nowrap'}} onClick={addDoctor}>+ Add</button>
+              </div>
             </div>
             <div style={{height:1,background:'rgba(255,255,255,0.5)',margin:'12px 0'}}/>
             <div style={{display:'flex',gap:8,flexWrap:'wrap'}}>
