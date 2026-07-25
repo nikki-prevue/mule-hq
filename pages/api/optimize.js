@@ -12,14 +12,35 @@ async function cacheCoords(id, lat, lon) {
   } catch (e) {}
 }
 
-async function geocode(addr) {
+function cleanAddr(a) {
+  if (!a) return '';
+  let s = String(a);
+  s = s.replace(/#\s*\S+/g, ' ');
+  s = s.replace(/\b(ste|suite|unit|apt|apartment|bldg|building|fl|floor|rm|room)\b\.?\s*[a-z0-9-]+/ig, ' ');
+  s = s.replace(/\s{2,}/g, ' ').replace(/\s*,\s*/g, ', ').replace(/,+\s*$/,'').trim();
+  return s;
+}
+
+async function censusLookup(q) {
   try {
-    const url = `https://geocoding.geo.census.gov/geocoder/locations/onelineaddress?address=${encodeURIComponent(addr)}&benchmark=Public_AR_Current&format=json`;
+    const url = `https://geocoding.geo.census.gov/geocoder/locations/onelineaddress?address=${encodeURIComponent(q)}&benchmark=Public_AR_Current&format=json`;
     const r = await fetch(url);
     const d = await r.json();
     const m = d?.result?.addressMatches?.[0];
     if (m && m.coordinates) return { lat: m.coordinates.y, lon: m.coordinates.x };
   } catch (e) {}
+  return null;
+}
+
+async function geocode(addr, city) {
+  const street = cleanAddr(addr);
+  const c = city || '';
+  const tries = [`${street}, ${c}, TX`, `${street}, TX`, `${addr}, ${c}, TX`];
+  for (const q of tries) {
+    if (!q || q.replace(/[ ,]/g,'').length < 5) continue;
+    const g = await censusLookup(q);
+    if (g) return g;
+  }
   return null;
 }
 
@@ -39,7 +60,7 @@ export default async function handler(req, res) {
     const resolved = await Promise.all(stops.map(async (s) => {
       let lat = s.lat, lon = s.lon;
       if ((lat == null || lon == null) && s.address) {
-        const g = await geocode(`${s.address} ${s.city || ''} TX`.trim());
+        const g = await geocode(s.address, s.city);
         if (g) { lat = g.lat; lon = g.lon; await cacheCoords(s.id, lat, lon); }
       }
       return { name: s.name, lat, lon };
