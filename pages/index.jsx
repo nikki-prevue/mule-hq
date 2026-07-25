@@ -261,31 +261,14 @@ export default function MuleHQ() {
     if(optimizing||route.length<2){ if(route.length<2) alert('Add at least 2 stops to optimize.'); return; }
     setOptimizing(true);
     try{
-      const stops=route.map(st=>({...st}));
-      for(const st of stops){
-        const off=offices.find(o=>o.id===st.id||o.name===st.name);
-        let lat=(off&&off.lat!=null)?off.lat:st.lat, lon=(off&&off.lon!=null)?off.lon:st.lon;
-        const addr=st.address||(off&&off.address)||'';
-        if((lat==null||lon==null)&&addr){
-          try{
-            const q=encodeURIComponent(addr+' '+(st.city||(off&&off.city)||'')+' TX');
-            const r=await fetch(`https://nominatim.openstreetmap.org/search?format=json&limit=1&q=${q}`,{headers:{'Accept':'application/json'}});
-            const d=await r.json();
-            if(d&&d[0]){ lat=parseFloat(d[0].lat); lon=parseFloat(d[0].lon); if(off) await fetch('/api/offices',{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({id:off.id,lat,lon})}); }
-          }catch(e){}
-          await new Promise(res=>setTimeout(res,1100));
-        }
-        st._lat=lat; st._lon=lon;
-      }
-      const geo=stops.filter(st=>st._lat!=null&&st._lon!=null);
-      const nogeo=stops.filter(st=>st._lat==null||st._lon==null);
-      if(geo.length<2){ alert('Could not locate enough stops. Make sure they have addresses, then try again.'); setOptimizing(false); return; }
-      let start=geo.reduce((a,b)=>b._lon<a._lon?b:a);
-      const ordered=[start]; const rest=geo.filter(st=>st!==start);
-      while(rest.length){ const last=ordered[ordered.length-1]; let bi=0,bd=Infinity; rest.forEach((st,i)=>{const dd=haversine({lat:last._lat,lon:last._lon},{lat:st._lat,lon:st._lon}); if(dd<bd){bd=dd;bi=i;}}); ordered.push(rest.splice(bi,1)[0]); }
-      const finalStops=[...ordered,...nogeo].map((st,i)=>({...st,order:i+1}));
-      updateRoute(finalStops);
-      alert('Route optimized west-to-east, no zig-zag'+(nogeo.length?(' ('+nogeo.length+' stop(s) had no address and were left at the end)'):'')+'. Tap Google Maps to navigate.');
+      const payload=route.map(st=>{const off=offices.find(o=>o.id===st.id||o.name===st.name); return {id:off?off.id:st.id, name:st.name, address:st.address||(off&&off.address)||'', city:st.city||(off&&off.city)||'', lat:(off&&off.lat!=null)?off.lat:st.lat, lon:(off&&off.lon!=null)?off.lon:st.lon};});
+      const r=await fetch('/api/optimize',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({stops:payload})});
+      const d=await r.json();
+      if(d.error||!d.ordered){ alert(d.error||'Optimize failed - try again.'); setOptimizing(false); return; }
+      const byName={}; route.forEach(st=>{byName[st.name]=st;});
+      const finalStops=d.ordered.map((nm,idx)=>({...(byName[nm]||{name:nm}),order:idx+1}));
+      updateRoute(finalStops); await loadAll();
+      alert('Route optimized west-to-east, no zig-zag.'+((d.unlocated&&d.unlocated.length)?(' ('+d.unlocated.length+' had no address, left at the end)'):'')+' Tap Google Maps to navigate.');
     }catch(e){ alert('Optimize failed - try again in a moment.'); }
     setOptimizing(false);
   }
