@@ -2,38 +2,36 @@ import { useState, useEffect, useRef } from 'react';
 
 // ─── DESIGN SYSTEM ───────────────────────────────────────────────
 const C = {
-  gold:     '#C9A96E',
-  goldDark: '#A07830',
-  sage:     '#5A9B6E',
-  hot:      '#D4634A',
-  lav:      '#9B8EC4',
-  rose:     '#C47A8A',
-  choc:     '#2C1A0E',
-  choc2:    '#4A3020',
-  choc3:    '#7A6050',
-  white:    'rgba(255,255,255,0.95)',
-  glass:    'rgba(255,255,255,0.18)',
-  glassBorder: 'rgba(255,255,255,0.35)',
-  glassDark: 'rgba(255,245,235,0.12)',
+  gold:     '#2563EB',
+  goldDark: '#1D4ED8',
+  sage:     '#16A34A',
+  hot:      '#DC2626',
+  lav:      '#7C74C9',
+  rose:     '#B45C7A',
+  choc:     '#111827',
+  choc2:    '#374151',
+  choc3:    '#6B7280',
+  white:    '#FFFFFF',
+  glass:    '#FFFFFF',
+  glassBorder: '#E5E7EB',
+  glassDark: '#F3F4F6',
 };
 
-const GRADIENT = `linear-gradient(135deg, #F5DEB3 0%, #FAEBD7 20%, #DEB887 40%, #F5E6C8 60%, #E8C99A 80%, #F0D9B5 100%)`;
+const GRADIENT = '#F6F7F9';
 
 const glass = (extra = {}) => ({
-  background: 'rgba(255,250,240,0.55)',
-  backdropFilter: 'blur(20px) saturate(1.8)',
-  WebkitBackdropFilter: 'blur(20px) saturate(1.8)',
-  border: '1px solid rgba(255,255,255,0.6)',
-  boxShadow: '0 8px 32px rgba(160,120,48,0.12), inset 0 1px 0 rgba(255,255,255,0.8)',
-  borderRadius: 20,
+  background: '#FFFFFF',
+  border: '1px solid #E8EAED',
+  boxShadow: 'none',
+  borderRadius: 14,
   ...extra,
 });
 
 const glassCard = (extra = {}) => ({
   ...glass(),
-  padding: 18,
-  marginBottom: 14,
-  transition: 'all 0.3s ease',
+  padding: 16,
+  marginBottom: 12,
+  transition: 'all 0.2s ease',
   ...extra,
 });
 
@@ -45,17 +43,17 @@ const badge = (color, bg) => ({
 
 const btn = {
   primary: {
-    background: `linear-gradient(135deg, ${C.goldDark}, ${C.gold})`,
-    color: 'white', border: 'none', borderRadius: 12, padding: '11px 22px',
-    fontFamily: "'DM Sans',sans-serif", fontSize: 13, fontWeight: 700,
-    cursor: 'pointer', boxShadow: `0 4px 16px ${C.gold}44`, letterSpacing: '0.03em',
-    transition: 'all 0.2s',
+    background: C.gold,
+    color: '#FFFFFF', border: 'none', borderRadius: 10, padding: '11px 20px',
+    fontFamily: "'DM Sans',sans-serif", fontSize: 13, fontWeight: 600,
+    cursor: 'pointer', boxShadow: 'none', letterSpacing: '0.01em',
+    transition: 'all 0.15s',
   },
   secondary: {
-    background: 'rgba(255,250,240,0.7)', color: C.choc,
-    border: '1px solid rgba(255,255,255,0.6)', borderRadius: 12,
-    padding: '11px 22px', fontFamily: "'DM Sans',sans-serif",
-    fontSize: 13, fontWeight: 600, cursor: 'pointer', transition: 'all 0.2s',
+    background: '#FFFFFF', color: C.choc,
+    border: '1px solid #E5E7EB', borderRadius: 10,
+    padding: '11px 20px', fontFamily: "'DM Sans',sans-serif",
+    fontSize: 13, fontWeight: 600, cursor: 'pointer', transition: 'all 0.15s',
   },
   sm: { padding: '6px 13px', fontSize: 11, borderRadius: 9 },
   danger: {
@@ -67,12 +65,12 @@ const btn = {
 };
 
 const input = {
-  background: 'rgba(255,250,240,0.7)', border: '1px solid rgba(255,255,255,0.6)',
-  borderRadius: 12, color: C.choc, fontFamily: "'DM Sans',sans-serif",
+  background: '#FFFFFF', border: '1px solid #E5E7EB',
+  borderRadius: 10, color: C.choc, fontFamily: "'DM Sans',sans-serif",
   fontSize: 14, fontWeight: 500, padding: '11px 14px', outline: 'none',
-  width: '100%', marginBottom: 12, backdropFilter: 'blur(8px)',
-  boxShadow: 'inset 0 2px 4px rgba(160,120,48,0.06)',
-  transition: 'border 0.2s',
+  width: '100%', marginBottom: 12,
+  boxShadow: 'none',
+  transition: 'border 0.15s',
 };
 const label = {
   fontSize: 11, fontWeight: 700, letterSpacing: '0.09em',
@@ -93,9 +91,9 @@ const cardHeader = {
   borderBottom: '1px solid rgba(255,255,255,0.5)',
 };
 const modal = {
-  position: 'fixed', inset: 0, background: 'rgba(44,26,14,0.45)',
+  position: 'fixed', inset: 0, background: 'rgba(17,24,39,0.45)',
   zIndex: 200, display: 'flex', alignItems: 'center', justifyContent: 'center',
-  backdropFilter: 'blur(8px)', WebkitBackdropFilter: 'blur(8px)', padding: 16,
+  padding: 16,
 };
 const modalBox = {
   ...glass(), padding: 28, width: '100%', maxWidth: 580,
