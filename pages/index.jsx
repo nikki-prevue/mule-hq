@@ -106,6 +106,14 @@ const TAB_LABELS = ['Today','Offices','Field','Vault','Calendar','Lunches','Supp
 
 function haversine(a,b){const R=6371,r=Math.PI/180;const dLa=(b.lat-a.lat)*r,dLo=(b.lon-a.lon)*r;const s1=Math.sin(dLa/2)**2+Math.cos(a.lat*r)*Math.cos(b.lat*r)*Math.sin(dLo/2)**2;return 2*R*Math.asin(Math.sqrt(s1));}
 
+const IconHome=()=>(<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round"><path d="M3 11l9-8 9 8"/><path d="M5 10v10h14V10"/></svg>);
+const IconOffices=()=>(<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round"><rect x="4" y="3" width="16" height="18" rx="1.5"/><path d="M9 7h2M13 7h2M9 11h2M13 11h2M9 15h6"/></svg>);
+const IconField=()=>(<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round"><path d="M4 20h16"/><path d="M14.5 4.5l5 5L9 20H4v-5z"/></svg>);
+const IconCalendar=()=>(<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4" width="18" height="17" rx="2"/><path d="M3 9h18M8 2v4M16 2v4"/></svg>);
+const IconMore=()=>(<svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor" stroke="none"><circle cx="5" cy="12" r="1.6"/><circle cx="12" cy="12" r="1.6"/><circle cx="19" cy="12" r="1.6"/></svg>);
+const NAV=[{key:'command',label:'Today',Icon:IconHome},{key:'offices',label:'Offices',Icon:IconOffices},{key:'field',label:'Field',Icon:IconField},{key:'calendar',label:'Calendar',Icon:IconCalendar},{key:'__more',label:'More',Icon:IconMore}];
+const MORE=[{key:'vault',label:'Visit Vault'},{key:'lunches',label:'Lunches'},{key:'supplies',label:'Supplies'},{key:'reports',label:'Reports'}];
+
 export default function MuleHQ() {
   const [tab, setTab] = useState('command');
   const [offices, setOffices] = useState([]);
@@ -118,6 +126,7 @@ export default function MuleHQ() {
   const [newDoctorName, setNewDoctorName] = useState('');
   const [briefRunning, setBriefRunning] = useState(false);
   const [optimizing, setOptimizing] = useState(false);
+  const [showMore, setShowMore] = useState(false);
   const [briefing, setBriefing] = useState('Loading your morning briefing...');
   const [time, setTime] = useState('');
   const [phase, setPhase] = useState('');
@@ -1065,17 +1074,29 @@ You guide Nikki through her day: suggest routes, capture visit notes, generate p
       </div>
 
       {/* ── BOTTOM NAV ── */}
-      <div style={{position:'fixed',bottom:0,left:0,right:0,...glass({borderRadius:0,borderBottom:'none',borderLeft:'none',borderRight:'none'}),display:'flex',zIndex:100,height:68,boxShadow:'0 -4px 20px rgba(160,120,48,0.12)'}}>
-        {TABS.map((t,i)=>(
-          <div key={t} onClick={()=>setTab(t)} style={{flex:1,display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',cursor:'pointer',color:tab===t?C.goldDark:C.choc3,borderTop:tab===t?`2.5px solid ${C.gold}`:'2.5px solid transparent',paddingTop:4,transition:'all 0.15s',gap:2}}>
-            <div style={{fontSize:18,lineHeight:1}}>{TAB_ICONS[i]}</div>
-            <div style={{fontSize:8,fontWeight:800,letterSpacing:'0.07em',textTransform:'uppercase'}}>{TAB_LABELS[i]}</div>
+      <div style={{position:'fixed',bottom:0,left:0,right:0,background:'#FFFFFF',borderTop:'1px solid #E8EAED',display:'flex',zIndex:100,height:62}}>
+        {NAV.map(n=>{const moreKeys=['vault','lunches','supplies','reports'];const active=n.key==='__more'?(showMore||moreKeys.includes(tab)):(tab===n.key&&!showMore);const Ic=n.Icon;return(
+          <div key={n.key} onClick={()=>{if(n.key==='__more'){setShowMore(true);}else{setShowMore(false);setTab(n.key);}}} style={{flex:1,display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',cursor:'pointer',color:active?C.gold:C.choc3,gap:3}}>
+            <Ic/>
+            <div style={{fontSize:11,fontWeight:active?600:500}}>{n.label}</div>
           </div>
-        ))}
+        );})}
       </div>
 
-      {/* FAB */}
-      <button onClick={()=>setTab('field')} style={{position:'fixed',bottom:78,right:16,width:52,height:52,borderRadius:'50%',background:`linear-gradient(135deg,${C.goldDark},${C.gold})`,color:'white',border:'none',fontSize:22,display:'flex',alignItems:'center',justifyContent:'center',boxShadow:`0 4px 20px ${C.gold}55`,cursor:'pointer',zIndex:99,transition:'transform 0.2s'}} onMouseEnter={e=>e.currentTarget.style.transform='scale(1.08)'} onMouseLeave={e=>e.currentTarget.style.transform='scale(1)'}>+</button>
+      {/* MORE SHEET */}
+      {showMore&&(
+        <div onClick={()=>setShowMore(false)} style={{position:'fixed',inset:0,background:'rgba(17,24,39,0.35)',zIndex:110,display:'flex',alignItems:'flex-end'}}>
+          <div onClick={e=>e.stopPropagation()} style={{background:'#FFFFFF',width:'100%',borderTopLeftRadius:18,borderTopRightRadius:18,padding:'16px 18px 84px',borderTop:'1px solid #E8EAED'}}>
+            <div style={{fontSize:12,fontWeight:600,color:C.choc3,textTransform:'uppercase',letterSpacing:'0.08em',marginBottom:8}}>More</div>
+            {MORE.map(m=>(
+              <div key={m.key} onClick={()=>{setTab(m.key);setShowMore(false);}} style={{display:'flex',alignItems:'center',justifyContent:'space-between',padding:'15px 4px',borderBottom:'1px solid #F1F2F4',cursor:'pointer'}}>
+                <span style={{fontSize:15,fontWeight:500,color:C.choc}}>{m.label}</span>
+                <span style={{color:C.choc3,fontSize:18}}>›</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* ─── MODALS ───────────────────────────────────────────── */}
 
