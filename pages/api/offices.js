@@ -25,6 +25,7 @@ function mapOut(o) {
     tier: o.tier || 'warm',
     status: o.status || '',
     address: o.address || '',
+    phone: o.phone || '',
     contact: o.contact || '',
     notes: o.notes || '',
     gift: o.gift || '',
@@ -52,6 +53,7 @@ function mapIn(data) {
   if (data.tier !== undefined) mapped.tier = data.tier;
   if (data.status !== undefined) mapped.status = data.status;
   if (data.address !== undefined) mapped.address = data.address;
+  if (data.phone !== undefined) mapped.phone = data.phone;
   if (data.contact !== undefined) mapped.contact = data.contact;
   if (data.notes !== undefined) mapped.notes = data.notes;
   if (data.gift !== undefined) mapped.gift = data.gift;
