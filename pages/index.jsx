@@ -129,6 +129,7 @@ export default function MuleHQ() {
   const [showMore, setShowMore] = useState(false);
   const [profileNote, setProfileNote] = useState('');
   const [showEdit, setShowEdit] = useState(false);
+  const [showFullNotes, setShowFullNotes] = useState(false);
   const [briefing, setBriefing] = useState('Loading your morning briefing...');
   const [time, setTime] = useState('');
   const [phase, setPhase] = useState('');
@@ -1157,6 +1158,12 @@ You guide Nikki through her day: suggest routes, capture visit notes, generate p
               ))}
             </div>
 
+            {ao.notes&&(
+              <div style={{marginBottom:12}}>
+                <div onClick={()=>setShowFullNotes(v=>!v)} style={{fontSize:12,fontWeight:600,color:C.gold,cursor:'pointer'}}>{showFullNotes?'Hide full notes history':'View full notes history'}</div>
+                {showFullNotes&&<div style={{marginTop:8,fontSize:13,color:C.choc2,lineHeight:1.7,whiteSpace:'pre-wrap',background:C.glassDark,borderRadius:12,padding:'10px 12px'}}>{ao.notes}</div>}
+              </div>
+            )}
             <div style={{display:'flex',gap:8,marginBottom:14}}>
               <input style={{...input,marginBottom:0,fontSize:14}} value={profileNote} onChange={e=>setProfileNote(e.target.value)} placeholder="Log a note - what happened..." onKeyDown={e=>e.key==='Enter'&&addProfileNote()}/>
               <button style={{...btn.primary,whiteSpace:'nowrap'}} onClick={addProfileNote}>Log</button>
