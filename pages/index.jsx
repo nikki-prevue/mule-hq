@@ -128,6 +128,7 @@ export default function MuleHQ() {
   const [optimizing, setOptimizing] = useState(false);
   const [showMore, setShowMore] = useState(false);
   const [profileNote, setProfileNote] = useState('');
+  const [profileNoteDate, setProfileNoteDate] = useState(new Date().toISOString().split('T')[0]);
   const [showEdit, setShowEdit] = useState(false);
   const [showFullNotes, setShowFullNotes] = useState(false);
   const [briefing, setBriefing] = useState('Loading your morning briefing...');
@@ -285,12 +286,13 @@ export default function MuleHQ() {
   async function addProfileNote(){
     if(!profileNote.trim()||!selectedOffice) return;
     const off=selectedOffice;
-    const ts=new Date().toLocaleString('en-US',{month:'short',day:'numeric',hour:'numeric',minute:'2-digit',hour12:true});
-    const note=`[Note - ${ts}] ${profileNote.trim()}`;
-    const today=new Date().toISOString().split('T')[0];
+    const d=profileNoteDate||new Date().toISOString().split('T')[0];
+    const note=profileNote.trim();
     setProfileNote('');
-    await fetch('/api/visits',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({office:off.name,doctor:off.doctor||'',notes:note,tier:off.tier||'warm',date:today})});
-    setSelectedOffice({...off,lastVisit:today,notes:note+'\n'+(off.notes||'')});
+    await fetch('/api/visits',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({office:off.name,doctor:off.doctor||'',notes:note,tier:off.tier||'warm',date:d})});
+    const newLast=(off.lastVisit&&String(off.lastVisit)>String(d))?off.lastVisit:d;
+    setProfileNoteDate(new Date().toISOString().split('T')[0]);
+    setSelectedOffice({...off,lastVisit:newLast,notes:note+'\n'+(off.notes||'')});
     await loadAll();
   }
   async function briefRoute(){
@@ -735,11 +737,11 @@ You guide Nikki through her day: suggest routes, capture visit notes, generate p
                 <option value="">All Tiers</option><option value="hot">Hot</option><option value="warm">Warm</option><option value="cold">Cold</option>
               </select>
               <select style={{...input,marginBottom:0,width:150}} value={cityFilter} onChange={e=>setCityFilter(e.target.value)}>
-                <option value="">All Cities</option><option value="Flower Mound">Flower Mound</option><option value="Highland Village">Highland Village</option><option value="Lewisville">Lewisville</option><option value="Other">Other</option>
+                <option value="">All Cities</option><option value="Flower Mound">Flower Mound</option><option value="Highland Village">Highland Village</option><option value="Lewisville">Lewisville</option><option value="Grapevine">Grapevine</option><option value="Southlake">Southlake</option><option value="Other">Other</option>
               </select>
             </div>
-            {['Flower Mound','Highland Village','Lewisville','Other'].map(city=>{
-              const cityOff=filteredOffices.filter(o=>o.city===city).sort((a,b)=>{
+            {Array.from(new Set(filteredOffices.map(o=>o.city||'Other'))).sort().map(city=>{
+              const cityOff=filteredOffices.filter(o=>(o.city||'Other')===city).sort((a,b)=>{
                 if(a.status==='Do Not Target'&&b.status!=='Do Not Target')return 1;
                 if(a.status!=='Do Not Target'&&b.status==='Do Not Target')return -1;
                 if(a.tier==='hot'&&b.tier!=='hot')return -1;if(a.tier!=='hot'&&b.tier==='hot')return 1;
@@ -1117,7 +1119,7 @@ You guide Nikki through her day: suggest routes, capture visit notes, generate p
       {/* OFFICE DETAIL */}
       {selectedOffice&&(()=>{
         const ao=offices.find(o=>o.id===selectedOffice.id)||selectedOffice;
-        const thread=visits.filter(v=>v.office&&ao.name&&String(v.office).toLowerCase()===String(ao.name).toLowerCase());
+        const thread=visits.filter(v=>v.office&&ao.name&&String(v.office).toLowerCase()===String(ao.name).toLowerCase()).slice().sort((a,b)=>String(b.date).localeCompare(String(a.date)));
         const docs=doctors.filter(d=>d.office===ao.name);
         const editFields=[{l:'Contact',f:'contact'},{l:'Phone',f:'phone'},{l:'Hours',f:'hours'},{l:'Closed days',f:'closedDays'},{l:'Territory',f:'territory'},{l:'DSO / group',f:'dso'},{l:'Last gift',f:'gift'}];
         return (
@@ -1164,10 +1166,12 @@ You guide Nikki through her day: suggest routes, capture visit notes, generate p
                 {showFullNotes&&<div style={{marginTop:8,fontSize:13,color:C.choc2,lineHeight:1.7,whiteSpace:'pre-wrap',background:C.glassDark,borderRadius:12,padding:'10px 12px'}}>{ao.notes}</div>}
               </div>
             )}
-            <div style={{display:'flex',gap:8,marginBottom:14}}>
-              <input style={{...input,marginBottom:0,fontSize:14}} value={profileNote} onChange={e=>setProfileNote(e.target.value)} placeholder="Log a note - what happened..." onKeyDown={e=>e.key==='Enter'&&addProfileNote()}/>
+            <div style={{display:'flex',gap:8,marginBottom:6,alignItems:'center',flexWrap:'wrap'}}>
+              <input type="date" value={profileNoteDate} onChange={e=>setProfileNoteDate(e.target.value)} style={{...input,marginBottom:0,fontSize:13,width:150}}/>
+              <input style={{...input,marginBottom:0,fontSize:14,flex:1,minWidth:150}} value={profileNote} onChange={e=>setProfileNote(e.target.value)} placeholder="Log a note - what happened..." onKeyDown={e=>e.key==='Enter'&&addProfileNote()}/>
               <button style={{...btn.primary,whiteSpace:'nowrap'}} onClick={addProfileNote}>Log</button>
             </div>
+            <div style={{fontSize:11,color:C.choc3,marginBottom:14}}>Set the date to back-date a note. Last touch always shows your most recent date.</div>
 
             <div style={{display:'flex',gap:8,flexWrap:'wrap'}}>
               <button style={btn.primary} onClick={()=>{if(!route.find(r=>r.name===ao.name))updateRoute([...route,{...ao,order:route.length+1,done:false,stopNote:''}]);setSelectedOffice(null);setTab('command');}}>Add to route</button>
@@ -1272,7 +1276,7 @@ You guide Nikki through her day: suggest routes, capture visit notes, generate p
               <div style={{gridColumn:'1/-1'}}><div style={label}>Practice Name</div><input style={input} value={newOffice.name} onChange={e=>setNewOffice({...newOffice,name:e.target.value})} placeholder="Practice name" autoFocus/></div>
               <div><div style={label}>Doctor</div><input style={input} value={newOffice.doctor} onChange={e=>setNewOffice({...newOffice,doctor:e.target.value})} placeholder="Dr. Last Name"/></div>
               <div><div style={label}>Contact</div><input style={input} value={newOffice.contact} onChange={e=>setNewOffice({...newOffice,contact:e.target.value})} placeholder="Front desk, OM..."/></div>
-              <div><div style={label}>City</div><select style={input} value={newOffice.city} onChange={e=>setNewOffice({...newOffice,city:e.target.value})}><option>Flower Mound</option><option>Highland Village</option><option>Lewisville</option><option>Other</option></select></div>
+              <div><div style={label}>City</div><select style={input} value={newOffice.city} onChange={e=>setNewOffice({...newOffice,city:e.target.value})}><option>Flower Mound</option><option>Highland Village</option><option>Lewisville</option><option>Grapevine</option><option>Southlake</option><option>Other</option></select></div>
               <div><div style={label}>Tier</div><select style={input} value={newOffice.tier} onChange={e=>setNewOffice({...newOffice,tier:e.target.value})}><option value="warm">Warm</option><option value="hot">Hot</option><option value="cold">Cold</option></select></div>
               <div style={{gridColumn:'1/-1'}}><div style={label}>Address</div><input style={input} value={newOffice.address} onChange={e=>setNewOffice({...newOffice,address:e.target.value})} placeholder="Full address"/></div>
               <div><div style={label}>Phone</div><input style={input} value={newOffice.phone} onChange={e=>setNewOffice({...newOffice,phone:e.target.value})} placeholder="(XXX) XXX-XXXX"/></div>
