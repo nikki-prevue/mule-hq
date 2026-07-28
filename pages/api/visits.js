@@ -30,6 +30,14 @@ function mapOut(v) {
   };
 }
 
+async function recomputeLastVisit(office) {
+  try {
+    const rows = await query('GET', `visits?office=ilike.${encodeURIComponent(office)}&select=date&order=date.desc&limit=1`);
+    const maxd = (rows && rows[0]) ? rows[0].date : null;
+    if (maxd) await query('PATCH', `offices?name=ilike.${encodeURIComponent(office)}`, { last_visit: maxd });
+  } catch (e) {}
+}
+
 export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   try {
@@ -66,6 +74,25 @@ export default async function handler(req, res) {
         }
       } catch (e) { console.error('office propagation:', e.message); }
       return res.status(200).json(mapOut(data[0] || {}));
+    }
+    if (req.method === 'PATCH') {
+      const { id, ...body } = req.body;
+      const upd = {};
+      if (body.notes !== undefined) upd.notes = body.notes;
+      if (body.date !== undefined) upd.date = body.date;
+      if (body.gift !== undefined) upd.gift = body.gift;
+      const data = await query('PATCH', `visits?id=eq.${id}`, upd);
+      const office = (data && data[0]) ? data[0].office : null;
+      if (office && body.date !== undefined) await recomputeLastVisit(office);
+      return res.status(200).json(mapOut(data[0] || {}));
+    }
+    if (req.method === 'DELETE') {
+      const id = req.body.id;
+      let office = null;
+      try { const v = await query('GET', `visits?id=eq.${id}&select=office`); office = (v && v[0]) ? v[0].office : null; } catch (e) {}
+      await query('DELETE', `visits?id=eq.${id}`);
+      if (office) await recomputeLastVisit(office);
+      return res.status(200).json({ success: true });
     }
   } catch (e) {
     return res.status(500).json({ error: e.message });
