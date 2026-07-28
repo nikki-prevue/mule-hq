@@ -107,6 +107,8 @@ const TAB_LABELS = ['Today','Offices','Field','Vault','Calendar','Lunches','Supp
 const parseD=(s)=>{const p=String(s||'').slice(0,10).split('-');return p.length===3?new Date(+p[0],+p[1]-1,+p[2]):new Date(s);};
 const fmtD=(s)=>parseD(s).toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric'});
 function haversine(a,b){const R=6371,r=Math.PI/180;const dLa=(b.lat-a.lat)*r,dLo=(b.lon-a.lon)*r;const s1=Math.sin(dLa/2)**2+Math.cos(a.lat*r)*Math.cos(b.lat*r)*Math.sin(dLo/2)**2;return 2*R*Math.asin(Math.sqrt(s1));}
+const START_OPTIONS=[{label:'Home',address:'2870 Keller Hicks Rd, Keller, TX'},{label:'ROOT FM office',address:'651 Cross Timbers Rd, Flower Mound, TX'}];
+const QUICK_STOPS=[{name:'ROOT Public Storage',address:'601 N Stemmons Fwy, Lewisville, TX'}];
 
 const IconHome=()=>(<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round"><path d="M3 11l9-8 9 8"/><path d="M5 10v10h14V10"/></svg>);
 const IconOffices=()=>(<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round"><rect x="4" y="3" width="16" height="18" rx="1.5"/><path d="M9 7h2M13 7h2M9 11h2M13 11h2M9 15h6"/></svg>);
@@ -184,6 +186,11 @@ export default function MuleHQ() {
   // Route
   const [routeSearch, setRouteSearch] = useState('');
   const [showRouteSearch, setShowRouteSearch] = useState(false);
+  const [routeStart, setRouteStart] = useState(START_OPTIONS[0]);
+  const [customStart, setCustomStart] = useState('');
+  const [showAddStop, setShowAddStop] = useState(false);
+  const [stopName, setStopName] = useState('');
+  const [stopAddr, setStopAddr] = useState('');
   const [smartPlan, setSmartPlan] = useState(null);
   const [planLoading, setPlanLoading] = useState(false);
   const [smartPlanQueue, setSmartPlanQueue] = useState([]);
@@ -278,7 +285,7 @@ export default function MuleHQ() {
     setOptimizing(true);
     try{
       const payload=route.map(st=>{const off=offices.find(o=>o.id===st.id||o.name===st.name); return {id:off?off.id:st.id, name:st.name, address:st.address||(off&&off.address)||'', city:st.city||(off&&off.city)||'', lat:(off&&off.lat!=null)?off.lat:st.lat, lon:(off&&off.lon!=null)?off.lon:st.lon};});
-      const r=await fetch('/api/optimize',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({stops:payload})});
+      const r=await fetch('/api/optimize',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({stops:payload,origin:(routeStart.label==='Other'?customStart:routeStart.address)||'2870 Keller Hicks Rd, Keller, TX'})});
       const d=await r.json();
       if(d.error||!d.ordered){ alert(d.error||'Optimize failed - try again.'); setOptimizing(false); return; }
       const byName={}; route.forEach(st=>{byName[st.name]=st;});
@@ -594,8 +601,8 @@ You guide Nikki through her day: suggest routes, capture visit notes, generate p
                   {route.length>0&&(
                     <span style={{fontSize:12,fontWeight:700,color:C.goldDark,cursor:'pointer'}} onClick={()=>{
                       const stops=route.sort((a,b)=>a.order-b.order).map(s=>encodeURIComponent((s.address||s.name)+' '+(s.city||'')+' TX'));
-                      const o=stops[0],d=stops[stops.length-1],w=stops.slice(1,-1).join('|');
-                      window.open(`https://www.google.com/maps/dir/?api=1&origin=${o}&destination=${d}${w?'&waypoints='+w:''}&travelmode=driving`,'_blank');
+                      const home=encodeURIComponent((routeStart.label==='Other'?customStart:routeStart.address)||'2870 Keller Hicks Rd, Keller, TX');
+                      window.open('https://www.google.com/maps/dir/'+home+'/'+stops.join('/')+'/'+home,'_blank');
                     }}>Google Maps</span>
                   )}
                   <span style={{fontSize:12,fontWeight:700,color:C.sage,cursor:'pointer'}} onClick={optimizeRoute}>{optimizing?'Optimizing...':'Optimize'}</span>
@@ -605,6 +612,35 @@ You guide Nikki through her day: suggest routes, capture visit notes, generate p
                 </div>
               </div>
 
+              {/* START POINT + ADD STOP */}
+              <div style={{display:'flex',flexWrap:'wrap',alignItems:'center',gap:8,marginBottom:12}}>
+                <span style={{fontSize:11,fontWeight:800,textTransform:'uppercase',letterSpacing:'0.06em',color:C.choc3}}>Start / End</span>
+                {START_OPTIONS.map(opt=>(
+                  <span key={opt.label} onClick={()=>setRouteStart(opt)} style={{fontSize:12,fontWeight:700,cursor:'pointer',padding:'5px 11px',borderRadius:8,border:`1px solid ${routeStart.label===opt.label?C.gold:'#E5E7EB'}`,background:routeStart.label===opt.label?`${C.gold}18`:'#FFFFFF',color:routeStart.label===opt.label?C.goldDark:C.choc3}}>{opt.label}</span>
+                ))}
+                <span onClick={()=>setRouteStart({label:'Other',address:''})} style={{fontSize:12,fontWeight:700,cursor:'pointer',padding:'5px 11px',borderRadius:8,border:`1px solid ${routeStart.label==='Other'?C.gold:'#E5E7EB'}`,background:routeStart.label==='Other'?`${C.gold}18`:'#FFFFFF',color:routeStart.label==='Other'?C.goldDark:C.choc3}}>Other</span>
+                <span onClick={()=>setShowAddStop(!showAddStop)} style={{fontSize:12,fontWeight:700,cursor:'pointer',padding:'5px 11px',borderRadius:8,border:`1px solid ${C.sage}`,background:`${C.sage}14`,color:C.sage,marginLeft:'auto'}}>+ Stop</span>
+              </div>
+              {routeStart.label==='Other'&&(
+                <div style={{display:'flex',gap:8,marginBottom:10}}>
+                  <input style={{...input,marginBottom:0,flex:1}} value={customStart} onChange={e=>setCustomStart(e.target.value)} placeholder="Type your start/end address, then tap Set"/>
+                  <button style={btn.primary} onClick={()=>{if(!customStart.trim()){alert('Type an address first.');return;}alert('Start set: '+customStart);}}>Set</button>
+                </div>
+              )}
+              <div style={{fontSize:11,fontWeight:600,color:C.choc3,marginBottom:12}}>Route starts & ends at: <span style={{fontWeight:800,color:C.goldDark}}>{routeStart.label==='Other'?(customStart||'(type an address above)'):routeStart.address}</span></div>
+              {showAddStop&&(
+                <div style={{background:`${C.sage}0D`,border:`1px solid ${C.sage}33`,borderRadius:12,padding:12,marginBottom:12}}>
+                  <div style={{fontSize:10,fontWeight:800,textTransform:'uppercase',letterSpacing:'0.06em',color:C.sage,marginBottom:8}}>Add a non-office stop</div>
+                  <div style={{display:'flex',gap:8,marginBottom:8,flexWrap:'wrap'}}>
+                    {QUICK_STOPS.map(q=>(
+                      <span key={q.name} onClick={()=>{setStopName(q.name);setStopAddr(q.address);}} style={{fontSize:11,fontWeight:700,cursor:'pointer',padding:'4px 10px',borderRadius:8,border:'1px solid #E5E7EB',background:'#FFFFFF',color:C.choc3}}>+ {q.name}</span>
+                    ))}
+                  </div>
+                  <input style={{...input,marginBottom:8}} value={stopName} onChange={e=>setStopName(e.target.value)} placeholder="Stop name (e.g. ROOT Storage, Lunch pickup)"/>
+                  <input style={{...input,marginBottom:8}} value={stopAddr} onChange={e=>setStopAddr(e.target.value)} placeholder="Address"/>
+                  <button style={btn.primary} onClick={()=>{if(!stopName||!stopAddr){alert('Add a stop name and address.');return;}updateRoute([...route,{id:'custom-'+Date.now(),name:stopName,address:stopAddr,city:'',order:route.length+1,done:false,stopNote:'',custom:true}]);setStopName('');setStopAddr('');setShowAddStop(false);}}>Add to route</button>
+                </div>
+              )}
               {/* SMART PLAN PANEL */}
               {smartPlan!==null&&(
                 <div style={{background:`${C.sage}12`,border:`1px solid ${C.sage}33`,borderRadius:14,padding:14,marginBottom:12}}>
@@ -706,8 +742,8 @@ You guide Nikki through her day: suggest routes, capture visit notes, generate p
                     <div style={{fontSize:12,fontWeight:600,color:C.choc3}}>{route.filter(s=>s.done).length} of {route.length} done</div>
                     <button style={btn.primary} onClick={()=>{
                       const stops=route.sort((a,b)=>a.order-b.order).map(s=>encodeURIComponent((s.address||s.name)+' '+(s.city||'')+' TX'));
-                      const o=stops[0],d=stops[stops.length-1],w=stops.slice(1,-1).join('|');
-                      window.open(`https://www.google.com/maps/dir/?api=1&origin=${o}&destination=${d}${w?'&waypoints='+w:''}&travelmode=driving`,'_blank');
+                      const home=encodeURIComponent((routeStart.label==='Other'?customStart:routeStart.address)||'2870 Keller Hicks Rd, Keller, TX');
+                      window.open('https://www.google.com/maps/dir/'+home+'/'+stops.join('/')+'/'+home,'_blank');
                     }}>Open Full Route</button>
                   </div>
                 </div>
