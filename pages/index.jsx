@@ -288,6 +288,12 @@ export default function MuleHQ() {
     }catch(e){ alert('Optimize failed - try again in a moment.'); }
     setOptimizing(false);
   }
+  async function saveOfficeDetails(){
+    if(!selectedOffice) return;
+    const o=selectedOffice;
+    await fetch('/api/offices',{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({id:o.id,doctor:o.doctor,contact:o.contact,phone:o.phone,hours:o.hours,closedDays:o.closedDays,territory:o.territory,dso:o.dso,gift:o.gift,address:o.address,tier:o.tier,nextAction:o.nextAction,openFollowUps:o.openFollowUps})});
+    await loadAll();
+  }
   async function saveNoteEdit(){
     if(!editNoteId) return;
     await fetch('/api/visits',{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({id:editNoteId,notes:editNoteText,date:editNoteDate})});
@@ -1136,9 +1142,9 @@ You guide Nikki through her day: suggest routes, capture visit notes, generate p
         const ao=offices.find(o=>o.id===selectedOffice.id)||selectedOffice;
         const thread=visits.filter(v=>v.office&&ao.name&&String(v.office).toLowerCase()===String(ao.name).toLowerCase()).slice().sort((a,b)=>String(b.date).localeCompare(String(a.date)));
         const docs=doctors.filter(d=>d.office===ao.name);
-        const editFields=[{l:'Contact',f:'contact'},{l:'Phone',f:'phone'},{l:'Hours',f:'hours'},{l:'Closed days',f:'closedDays'},{l:'Territory',f:'territory'},{l:'DSO / group',f:'dso'},{l:'Last gift',f:'gift'}];
+        const editFields=[{l:'Doctor(s)',f:'doctor'},{l:'Contact',f:'contact'},{l:'Phone',f:'phone'},{l:'Hours',f:'hours'},{l:'Closed days',f:'closedDays'},{l:'Territory',f:'territory'},{l:'DSO / group',f:'dso'},{l:'Last gift',f:'gift'}];
         return (
-        <div style={modal} onClick={e=>e.target===e.currentTarget&&setSelectedOffice(null)}>
+        <div style={modal} onClick={async(e)=>{if(e.target===e.currentTarget){if(showEdit)await saveOfficeDetails();setShowEdit(false);setSelectedOffice(null);}}}>
           <div style={modalBox}>
             <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',marginBottom:10}}>
               <div style={{flex:1,paddingRight:12}}>
@@ -1150,7 +1156,7 @@ You guide Nikki through her day: suggest routes, capture visit notes, generate p
                   <span style={{fontSize:11,fontWeight:600,color:isOverdue(ao.lastVisit)?C.hot:C.sage}}>{!ao.lastVisit?'Never visited':`Last touch ${daysAgo(ao.lastVisit)}`}</span>
                 </div>
               </div>
-              <span style={{cursor:'pointer',color:C.choc3,fontSize:24,lineHeight:1}} onClick={()=>setSelectedOffice(null)}>×</span>
+              <span style={{cursor:'pointer',color:C.choc3,fontSize:24,lineHeight:1}} onClick={async()=>{if(showEdit)await saveOfficeDetails();setShowEdit(false);setSelectedOffice(null);}}>×</span>
             </div>
 
             <div style={{background:C.glassDark,borderRadius:12,padding:'10px 14px',marginBottom:12,fontSize:13,color:C.choc2,lineHeight:1.9}}>
@@ -1211,22 +1217,23 @@ You guide Nikki through her day: suggest routes, capture visit notes, generate p
               <div style={{borderTop:'1px solid #E8EAED',marginTop:14,paddingTop:14}}>
                 <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:12}}>
                   {editFields.map(({l,f})=>(
-                    <div key={f}><div style={label}>{l}</div><input style={{...input,marginBottom:0,fontSize:13}} defaultValue={ao[f]||''} onBlur={async(e)=>{if(e.target.value!==(ao[f]||'')){await updateOfficeField(ao.id,f,e.target.value);setSelectedOffice({...ao,[f]:e.target.value});}}}/></div>
+                    <div key={f}><div style={label}>{l}</div><input style={{...input,marginBottom:0,fontSize:13}} value={selectedOffice[f]||''} onChange={e=>{const val=e.target.value;setSelectedOffice(p=>({...p,[f]:val}));}}/></div>
                   ))}
-                  <div><div style={label}>Tier</div><select style={{...input,marginBottom:0,fontSize:13}} value={ao.tier} onChange={async(e)=>{await updateOfficeField(ao.id,'tier',e.target.value);setSelectedOffice({...ao,tier:e.target.value});}}><option value="hot">Hot</option><option value="warm">Warm</option><option value="cold">Cold</option></select></div>
-                  <div style={{gridColumn:'1/-1'}}><div style={label}>Address</div><input style={{...input,marginBottom:0,fontSize:13}} defaultValue={ao.address||''} onBlur={async(e)=>{if(e.target.value!==(ao.address||'')){await updateOfficeField(ao.id,'address',e.target.value);setSelectedOffice({...ao,address:e.target.value});}}}/></div>
-                  <div style={{gridColumn:'1/-1'}}><div style={label}>Next action</div><input style={{...input,marginBottom:0,fontSize:13,color:C.sage}} defaultValue={ao.nextAction||''} onBlur={async(e)=>{if(e.target.value!==(ao.nextAction||'')){await updateOfficeField(ao.id,'nextAction',e.target.value);setSelectedOffice({...ao,nextAction:e.target.value});}}}/></div>
-                  <div style={{gridColumn:'1/-1'}}><div style={label}>Open follow-ups</div><textarea style={{...input,marginBottom:0,fontSize:13,minHeight:56}} defaultValue={ao.openFollowUps||''} onBlur={async(e)=>{if(e.target.value!==(ao.openFollowUps||'')){await updateOfficeField(ao.id,'openFollowUps',e.target.value);setSelectedOffice({...ao,openFollowUps:e.target.value});}}}/></div>
+                  <div><div style={label}>Tier</div><select style={{...input,marginBottom:0,fontSize:13}} value={selectedOffice.tier||'warm'} onChange={e=>{const val=e.target.value;setSelectedOffice(p=>({...p,tier:val}));}}><option value="hot">Hot</option><option value="warm">Warm</option><option value="cold">Cold</option></select></div>
+                  <div style={{gridColumn:'1/-1'}}><div style={label}>Address</div><input style={{...input,marginBottom:0,fontSize:13}} value={selectedOffice.address||''} onChange={e=>{const val=e.target.value;setSelectedOffice(p=>({...p,address:val}));}}/></div>
+                  <div style={{gridColumn:'1/-1'}}><div style={label}>Next action</div><input style={{...input,marginBottom:0,fontSize:13,color:C.sage}} value={selectedOffice.nextAction||''} onChange={e=>{const val=e.target.value;setSelectedOffice(p=>({...p,nextAction:val}));}}/></div>
+                  <div style={{gridColumn:'1/-1'}}><div style={label}>Open follow-ups</div><textarea style={{...input,marginBottom:0,fontSize:13,minHeight:56}} value={selectedOffice.openFollowUps||''} onChange={e=>{const val=e.target.value;setSelectedOffice(p=>({...p,openFollowUps:val}));}}/></div>
                 </div>
-                <div style={{marginTop:12}}>
-                  <div style={label}>Doctors</div>
+                <button style={{...btn.primary,marginTop:12,width:'100%'}} onClick={async()=>{await saveOfficeDetails();alert('Saved.');}}>Save details</button>
+                <div style={{marginTop:16}}>
+                  <div style={label}>Add individual doctors (optional)</div>
                   {docs.map(d=>(<div key={d.id} style={{fontSize:13,color:C.choc,padding:'4px 0'}}>{d.name}{d.specialty?' · '+d.specialty:''}</div>))}
                   <div style={{display:'flex',gap:8,marginTop:6}}>
-                    <input style={{...input,marginBottom:0,fontSize:13,flex:1}} value={newDoctorName} onChange={e=>setNewDoctorName(e.target.value)} placeholder="Add doctor - Dr. Name" onKeyDown={e=>e.key==='Enter'&&addDoctor()}/>
+                    <input style={{...input,marginBottom:0,fontSize:13,flex:1}} value={newDoctorName} onChange={e=>setNewDoctorName(e.target.value)} placeholder="Dr. Name" onKeyDown={e=>e.key==='Enter'&&addDoctor()}/>
                     <button style={{...btn.secondary,whiteSpace:'nowrap'}} onClick={addDoctor}>Add</button>
                   </div>
                 </div>
-                <button style={{...btn.danger,marginTop:14}} onClick={()=>deleteOffice(ao.id)}>Remove office</button>
+                <button style={{...btn.danger,marginTop:16}} onClick={()=>deleteOffice(selectedOffice.id)}>Remove office</button>
               </div>
             )}
           </div>
