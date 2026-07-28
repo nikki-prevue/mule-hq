@@ -68,14 +68,18 @@ export default async function handler(req, res) {
     const geo = resolved.filter(s => s.lat != null && s.lon != null);
     const nogeo = resolved.filter(s => s.lat == null || s.lon == null);
     if (geo.length < 2) return res.status(200).json({ error: 'Could not locate enough stops. Check their addresses.' });
-    let start = geo.reduce((a, b) => (b.lon < a.lon ? b : a));
-    const order = [start];
-    const rest = geo.filter(s => s !== start);
-    while (rest.length) {
-      const last = order[order.length - 1];
-      let bi = 0, bd = Infinity;
-      rest.forEach((s, i) => { const dd = haversine(last, s); if (dd < bd) { bd = dd; bi = i; } });
-      order.push(rest.splice(bi, 1)[0]);
+    let originCoord = null;
+    if (req.body && req.body.origin) originCoord = await censusLookup(req.body.origin);
+    let order = [];
+    const rest = geo.slice();
+    if (originCoord) {
+      let last = originCoord;
+      while (rest.length) { let bi = 0, bd = Infinity; rest.forEach((s, i) => { const dd = haversine(last, s); if (dd < bd) { bd = dd; bi = i; } }); const nx = rest.splice(bi, 1)[0]; order.push(nx); last = nx; }
+    } else {
+      let start = geo.reduce((a, b) => (b.lon < a.lon ? b : a));
+      order.push(start);
+      const r2 = geo.filter(s => s !== start);
+      while (r2.length) { const last = order[order.length - 1]; let bi = 0, bd = Infinity; r2.forEach((s, i) => { const dd = haversine(last, s); if (dd < bd) { bd = dd; bi = i; } }); order.push(r2.splice(bi, 1)[0]); }
     }
     const ordered = [...order, ...nogeo];
     return res.status(200).json({ ordered: ordered.map(s => s.name), located: geo.length, unlocated: nogeo.map(s => s.name) });
