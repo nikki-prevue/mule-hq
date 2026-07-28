@@ -104,6 +104,8 @@ const TABS = ['command','offices','field','vault','calendar','lunches','supplies
 const TAB_ICONS = ['⌂','◎','✦','⊟','◷','◇','▤','≡'];
 const TAB_LABELS = ['Today','Offices','Field','Vault','Calendar','Lunches','Supplies','Reports'];
 
+const parseD=(s)=>{const p=String(s||'').slice(0,10).split('-');return p.length===3?new Date(+p[0],+p[1]-1,+p[2]):new Date(s);};
+const fmtD=(s)=>parseD(s).toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric'});
 function haversine(a,b){const R=6371,r=Math.PI/180;const dLa=(b.lat-a.lat)*r,dLo=(b.lon-a.lon)*r;const s1=Math.sin(dLa/2)**2+Math.cos(a.lat*r)*Math.cos(b.lat*r)*Math.sin(dLo/2)**2;return 2*R*Math.asin(Math.sqrt(s1));}
 
 const IconHome=()=>(<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round"><path d="M3 11l9-8 9 8"/><path d="M5 10v10h14V10"/></svg>);
@@ -129,6 +131,9 @@ export default function MuleHQ() {
   const [showMore, setShowMore] = useState(false);
   const [profileNote, setProfileNote] = useState('');
   const [profileNoteDate, setProfileNoteDate] = useState(new Date().toISOString().split('T')[0]);
+  const [editNoteId, setEditNoteId] = useState(null);
+  const [editNoteText, setEditNoteText] = useState('');
+  const [editNoteDate, setEditNoteDate] = useState('');
   const [showEdit, setShowEdit] = useState(false);
   const [showFullNotes, setShowFullNotes] = useState(false);
   const [briefing, setBriefing] = useState('Loading your morning briefing...');
@@ -282,6 +287,16 @@ export default function MuleHQ() {
       alert('Route optimized west-to-east, no zig-zag.'+((d.unlocated&&d.unlocated.length)?(' ('+d.unlocated.length+' had no address, left at the end)'):'')+' Tap Google Maps to navigate.');
     }catch(e){ alert('Optimize failed - try again in a moment.'); }
     setOptimizing(false);
+  }
+  async function saveNoteEdit(){
+    if(!editNoteId) return;
+    await fetch('/api/visits',{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({id:editNoteId,notes:editNoteText,date:editNoteDate})});
+    setEditNoteId(null); await loadAll();
+  }
+  async function deleteNote(id){
+    if(!confirm('Delete this note? This cannot be undone.')) return;
+    await fetch('/api/visits',{method:'DELETE',headers:{'Content-Type':'application/json'},body:JSON.stringify({id})});
+    await loadAll();
   }
   async function addProfileNote(){
     if(!profileNote.trim()||!selectedOffice) return;
@@ -441,7 +456,7 @@ You guide Nikki through her day: suggest routes, capture visit notes, generate p
   // Helpers
   const daysAgo=(d)=>{if(!d)return'Never';const n=Math.floor((Date.now()-new Date(d))/864e5);return n===0?'Today':n===1?'Yesterday':`${n}d ago`;};
   const isOverdue=(d)=>!d||(Date.now()-new Date(d))>25*864e5;
-  const todayVisits=visits.filter(v=>new Date(v.date).toLocaleDateString()===new Date().toLocaleDateString());
+  const todayVisits=visits.filter(v=>parseD(v.date).toLocaleDateString()===new Date().toLocaleDateString());
   const urgentCount=tasks.filter(t=>!t.done&&t.priority==='urgent').length;
   const dueThisWeek=offices.filter(o=>{if(!o.lastVisit)return false;const d=Math.floor((Date.now()-new Date(o.lastVisit))/864e5);return d>=18&&d<32;}).length;
   const lunchPending=lunches.filter(l=>l.status==='Ordered'||l.status==='Pending').length;
@@ -505,7 +520,7 @@ You guide Nikki through her day: suggest routes, capture visit notes, generate p
             <div style={glassCard()}>
               <div style={cardLabel}>This Week at a Glance</div>
               <div style={{display:'grid',gridTemplateColumns:'repeat(5,1fr)',gap:8}}>
-                {weekDays.map((d,i)=>{const key=ymd(d);const isT=d.toDateString()===new Date().toDateString();const vC=visits.filter(v=>new Date(v.date).toDateString()===d.toDateString()).length;const evs=calEvents.filter(e=>e.date===key);const luC=lunches.filter(l=>l.date===key).length;return (
+                {weekDays.map((d,i)=>{const key=ymd(d);const isT=d.toDateString()===new Date().toDateString();const vC=visits.filter(v=>parseD(v.date).toDateString()===d.toDateString()).length;const evs=calEvents.filter(e=>e.date===key);const luC=lunches.filter(l=>l.date===key).length;return (
                   <div key={i} onClick={()=>{setCalDate(new Date(d));setSelectedDay(key);setTab('calendar');}} style={{cursor:'pointer',textAlign:'center',padding:'10px 4px',borderRadius:12,background:isT?`${C.gold}22`:'rgba(255,255,255,0.3)',border:isT?`1.5px solid ${C.gold}`:'1px solid rgba(255,255,255,0.4)'}}>
                     <div style={{fontSize:10,fontWeight:800,textTransform:'uppercase',letterSpacing:'0.06em',color:isT?C.goldDark:C.choc3}}>{d.toLocaleDateString('en-US',{weekday:'short'})}</div>
                     <div style={{fontFamily:"'Playfair Display',serif",fontSize:20,fontWeight:700,color:C.choc,lineHeight:1.2}}>{d.getDate()}</div>
@@ -872,7 +887,7 @@ You guide Nikki through her day: suggest routes, capture visit notes, generate p
                 <div key={v.id} onClick={()=>setSelectedVisit(v)} style={{...glassCard({marginBottom:0,cursor:'pointer',transition:'all 0.25s'})}} onMouseEnter={e=>{e.currentTarget.style.transform='translateY(-2px)';e.currentTarget.style.boxShadow=`0 12px 40px ${C.gold}22`;}} onMouseLeave={e=>{e.currentTarget.style.transform='none';e.currentTarget.style.boxShadow='0 8px 32px rgba(160,120,48,0.12)';e.currentTarget.style.border='1px solid rgba(255,255,255,0.6)';}}>
                   <div style={{display:'flex',justifyContent:'space-between',marginBottom:6}}>
                     <div style={{fontWeight:700,fontSize:13,color:C.choc,flex:1,paddingRight:8}}>{v.office}</div>
-                    <div style={{fontSize:10,fontWeight:600,color:C.choc3,flexShrink:0}}>{new Date(v.date).toLocaleDateString('en-US',{month:'short',day:'numeric'})}</div>
+                    <div style={{fontSize:10,fontWeight:600,color:C.choc3,flexShrink:0}}>{parseD(v.date).toLocaleDateString('en-US',{month:'short',day:'numeric'})}</div>
                   </div>
                   {v.contact&&<div style={{fontSize:11,fontWeight:500,color:C.choc3,marginBottom:4}}>Spoke with: {v.contact}</div>}
                   {v.gift&&<div style={{fontSize:11,fontWeight:700,color:C.goldDark,marginBottom:4}}>Drop: {v.gift}</div>}
@@ -1004,7 +1019,7 @@ You guide Nikki through her day: suggest routes, capture visit notes, generate p
                         </div>
                         <div style={{display:'flex',gap:14,flexWrap:'wrap'}}>
                           {l.restaurant&&<div style={{fontSize:12,fontWeight:700,color:C.goldDark}}>{l.restaurant}</div>}
-                          {l.date&&<div style={{fontSize:12,fontWeight:500,color:C.choc3,fontFamily:'monospace'}}>{new Date(l.date).toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric'})}</div>}
+                          {l.date&&<div style={{fontSize:12,fontWeight:500,color:C.choc3,fontFamily:'monospace'}}>{fmtD(l.date)}</div>}
                           {l.staffCount&&<div style={{fontSize:11,fontWeight:500,color:C.choc3}}>{l.staffCount} staff</div>}
                           {l.notes&&<div style={{fontSize:11,fontWeight:500,color:C.choc3,width:'100%',marginTop:2,lineHeight:1.5}}>{l.notes}</div>}
                         </div>
@@ -1153,19 +1168,32 @@ You guide Nikki through her day: suggest routes, capture visit notes, generate p
               {thread.length===0&&<div style={{fontSize:13,color:C.choc3}}>No notes yet. Add the first one below.</div>}
               {thread.map(v=>(
                 <div key={v.id} style={{background:'#F3F6FB',border:'1px solid #E4EAF2',borderRadius:12,padding:'10px 12px'}}>
-                  <div style={{fontSize:11,fontWeight:600,color:C.gold,marginBottom:3}}>{new Date(v.date).toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric'})}</div>
-                  <div style={{fontSize:13,color:C.choc,lineHeight:1.6,whiteSpace:'pre-wrap'}}>{v.notes}</div>
-                  {v.gift&&<div style={{fontSize:11,color:C.goldDark,marginTop:4}}>Gift: {v.gift}</div>}
+                  {editNoteId===v.id?(
+                    <div>
+                      <input type="date" value={editNoteDate} onChange={e=>setEditNoteDate(e.target.value)} style={{...input,marginBottom:8,fontSize:13,width:160}}/>
+                      <textarea value={editNoteText} onChange={e=>setEditNoteText(e.target.value)} style={{...input,marginBottom:8,fontSize:13,minHeight:90}}/>
+                      <div style={{display:'flex',gap:8}}>
+                        <button style={{...btn.primary,...btn.sm}} onClick={saveNoteEdit}>Save</button>
+                        <button style={{...btn.secondary,...btn.sm}} onClick={()=>setEditNoteId(null)}>Cancel</button>
+                      </div>
+                    </div>
+                  ):(
+                    <div>
+                      <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:4}}>
+                        <div style={{fontSize:11,fontWeight:600,color:C.gold}}>{fmtD(v.date)}</div>
+                        <div style={{display:'flex',gap:12}}>
+                          <span style={{fontSize:11,fontWeight:600,color:C.choc3,cursor:'pointer'}} onClick={()=>{setEditNoteId(v.id);setEditNoteText(v.notes||'');setEditNoteDate(String(v.date||'').slice(0,10));}}>Edit</span>
+                          <span style={{fontSize:11,fontWeight:600,color:C.hot,cursor:'pointer'}} onClick={()=>deleteNote(v.id)}>Delete</span>
+                        </div>
+                      </div>
+                      <div style={{fontSize:13,color:C.choc,lineHeight:1.6,whiteSpace:'pre-wrap'}}>{v.notes}</div>
+                      {v.gift&&<div style={{fontSize:11,color:C.goldDark,marginTop:4}}>Gift: {v.gift}</div>}
+                    </div>
+                  )}
                 </div>
               ))}
             </div>
 
-            {ao.notes&&(
-              <div style={{marginBottom:12}}>
-                <div onClick={()=>setShowFullNotes(v=>!v)} style={{fontSize:12,fontWeight:600,color:C.gold,cursor:'pointer'}}>{showFullNotes?'Hide full notes history':'View full notes history'}</div>
-                {showFullNotes&&<div style={{marginTop:8,fontSize:13,color:C.choc2,lineHeight:1.7,whiteSpace:'pre-wrap',background:C.glassDark,borderRadius:12,padding:'10px 12px'}}>{ao.notes}</div>}
-              </div>
-            )}
             <div style={{display:'flex',gap:8,marginBottom:6,alignItems:'center',flexWrap:'wrap'}}>
               <input type="date" value={profileNoteDate} onChange={e=>setProfileNoteDate(e.target.value)} style={{...input,marginBottom:0,fontSize:13,width:150}}/>
               <input style={{...input,marginBottom:0,fontSize:14,flex:1,minWidth:150}} value={profileNote} onChange={e=>setProfileNote(e.target.value)} placeholder="Log a note - what happened..." onKeyDown={e=>e.key==='Enter'&&addProfileNote()}/>
