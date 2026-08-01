@@ -109,6 +109,16 @@ const fmtD=(s)=>parseD(s).toLocaleDateString('en-US',{weekday:'short',month:'sho
 function haversine(a,b){const R=6371,r=Math.PI/180;const dLa=(b.lat-a.lat)*r,dLo=(b.lon-a.lon)*r;const s1=Math.sin(dLa/2)**2+Math.cos(a.lat*r)*Math.cos(b.lat*r)*Math.sin(dLo/2)**2;return 2*R*Math.asin(Math.sqrt(s1));}
 const START_OPTIONS=[{label:'Home',address:'2870 Keller Hicks Rd, Keller, TX'},{label:'ROOT FM office',address:'651 Cross Timbers Rd, Flower Mound, TX'}];
 const QUICK_STOPS=[{name:'ROOT Public Storage',address:'601 N Stemmons Fwy, Lewisville, TX'}];
+function buildRouteLegs(route, startAddr){
+  const clean=a=>String(a||'').replace(/#.*$/,'').replace(/\b(ste|suite|unit)\b.*$/i,'').replace(/,\s*$/,'').trim();
+  const home=((startAddr||'2870 Keller Hicks Rd, Keller, TX')).replace(/\s+/g,'+');
+  const stops=[...route].sort((a,b)=>a.order-b.order).map(s=>(clean(s.address||s.name)+', '+(s.city||'')+', TX').replace(/\s+/g,'+'));
+  if(!stops.length) return [];
+  const P=[home,...stops,home];
+  const urls=[];
+  for(let i=0;i<P.length-1;i+=4){ urls.push('https://www.google.com/maps/dir/'+P.slice(i,i+5).join('/')); }
+  return urls.map((url,i)=>({label: urls.length===1?'Open in Google Maps':('Leg '+(i+1)), url}));
+}
 
 const IconHome=()=>(<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round"><path d="M3 11l9-8 9 8"/><path d="M5 10v10h14V10"/></svg>);
 const IconOffices=()=>(<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round"><rect x="4" y="3" width="16" height="18" rx="1.5"/><path d="M9 7h2M13 7h2M9 11h2M13 11h2M9 15h6"/></svg>);
@@ -598,14 +608,6 @@ You guide Nikki through her day: suggest routes, capture visit notes, generate p
               <div style={cardHeader}>
                 <div style={cardLabel}>Today's Route</div>
                 <div style={{display:'flex',gap:10}}>
-                  {route.length>0&&(
-                    <span style={{fontSize:12,fontWeight:700,color:C.goldDark,cursor:'pointer'}} onClick={()=>{
-                      const clean=a=>String(a||'').replace(/#.*$/,'').replace(/\b(ste|suite|unit)\b.*$/i,'').replace(/,\s*$/,'').trim();
-                      const stops=route.sort((a,b)=>a.order-b.order).map(s=>(clean(s.address||s.name)+', '+(s.city||'')+', TX').replace(/\s+/g,'+'));
-                      const home=(((routeStart.label==='Other'?customStart:routeStart.address)||'2870 Keller Hicks Rd, Keller, TX')).replace(/\s+/g,'+');
-                      window.open('https://www.google.com/maps/dir/'+home+'/'+stops.join('/')+'/'+home,'_blank');
-                    }}>Google Maps</span>
-                  )}
                   <span style={{fontSize:12,fontWeight:700,color:C.sage,cursor:'pointer'}} onClick={optimizeRoute}>{optimizing?'Optimizing...':'Optimize'}</span>
                   <span style={{fontSize:12,fontWeight:700,color:C.goldDark,cursor:'pointer'}} onClick={generateSmartPlan}>{planLoading?'Planning...':'Smart Plan'}</span>
                   <span style={{fontSize:12,fontWeight:700,color:C.sage,cursor:'pointer'}} onClick={briefRoute}>{briefRunning?'Briefing...':'Brief Route'}</span>
@@ -741,12 +743,11 @@ You guide Nikki through her day: suggest routes, capture visit notes, generate p
                   ))}
                   <div style={{marginTop:12,padding:'10px 14px',background:'rgba(255,250,240,0.5)',borderRadius:10,display:'flex',justifyContent:'space-between',alignItems:'center'}}>
                     <div style={{fontSize:12,fontWeight:600,color:C.choc3}}>{route.filter(s=>s.done).length} of {route.length} done</div>
-                    <button style={btn.primary} onClick={()=>{
-                      const clean=a=>String(a||'').replace(/#.*$/,'').replace(/\b(ste|suite|unit)\b.*$/i,'').replace(/,\s*$/,'').trim();
-                      const stops=route.sort((a,b)=>a.order-b.order).map(s=>(clean(s.address||s.name)+', '+(s.city||'')+', TX').replace(/\s+/g,'+'));
-                      const home=(((routeStart.label==='Other'?customStart:routeStart.address)||'2870 Keller Hicks Rd, Keller, TX')).replace(/\s+/g,'+');
-                      window.open('https://www.google.com/maps/dir/'+home+'/'+stops.join('/')+'/'+home,'_blank');
-                    }}>Open Full Route</button>
+                    <div style={{display:'flex',flexWrap:'wrap',gap:8,justifyContent:'flex-end'}}>
+                      {buildRouteLegs(route, routeStart.label==='Other'?customStart:routeStart.address).map((leg,i)=>(
+                        <a key={i} href={leg.url} target="_blank" rel="noreferrer" style={{...btn.primary,textDecoration:'none',display:'inline-block'}}>{leg.label}</a>
+                      ))}
+                    </div>
                   </div>
                 </div>
               )}
