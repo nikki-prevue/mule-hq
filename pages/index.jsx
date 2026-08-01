@@ -600,9 +600,10 @@ You guide Nikki through her day: suggest routes, capture visit notes, generate p
                 <div style={{display:'flex',gap:10}}>
                   {route.length>0&&(
                     <span style={{fontSize:12,fontWeight:700,color:C.goldDark,cursor:'pointer'}} onClick={()=>{
-                      const stops=route.sort((a,b)=>a.order-b.order).map(s=>encodeURIComponent((s.address||s.name)+' '+(s.city||'')+' TX'));
-                      const home=encodeURIComponent((routeStart.label==='Other'?customStart:routeStart.address)||'2870 Keller Hicks Rd, Keller, TX');
-                      window.open('https://www.google.com/maps/dir/?api=1&origin='+home+'&destination='+home+'&waypoints='+stops.join('|')+'&travelmode=driving','_blank');
+                      const clean=a=>String(a||'').replace(/#.*$/,'').replace(/\b(ste|suite|unit)\b.*$/i,'').replace(/,\s*$/,'').trim();
+                      const stops=route.sort((a,b)=>a.order-b.order).map(s=>(clean(s.address||s.name)+', '+(s.city||'')+', TX').replace(/\s+/g,'+'));
+                      const home=(((routeStart.label==='Other'?customStart:routeStart.address)||'2870 Keller Hicks Rd, Keller, TX')).replace(/\s+/g,'+');
+                      window.open('https://www.google.com/maps/dir/'+home+'/'+stops.join('/')+'/'+home,'_blank');
                     }}>Google Maps</span>
                   )}
                   <span style={{fontSize:12,fontWeight:700,color:C.sage,cursor:'pointer'}} onClick={optimizeRoute}>{optimizing?'Optimizing...':'Optimize'}</span>
@@ -741,9 +742,10 @@ You guide Nikki through her day: suggest routes, capture visit notes, generate p
                   <div style={{marginTop:12,padding:'10px 14px',background:'rgba(255,250,240,0.5)',borderRadius:10,display:'flex',justifyContent:'space-between',alignItems:'center'}}>
                     <div style={{fontSize:12,fontWeight:600,color:C.choc3}}>{route.filter(s=>s.done).length} of {route.length} done</div>
                     <button style={btn.primary} onClick={()=>{
-                      const stops=route.sort((a,b)=>a.order-b.order).map(s=>encodeURIComponent((s.address||s.name)+' '+(s.city||'')+' TX'));
-                      const home=encodeURIComponent((routeStart.label==='Other'?customStart:routeStart.address)||'2870 Keller Hicks Rd, Keller, TX');
-                      window.open('https://www.google.com/maps/dir/?api=1&origin='+home+'&destination='+home+'&waypoints='+stops.join('|')+'&travelmode=driving','_blank');
+                      const clean=a=>String(a||'').replace(/#.*$/,'').replace(/\b(ste|suite|unit)\b.*$/i,'').replace(/,\s*$/,'').trim();
+                      const stops=route.sort((a,b)=>a.order-b.order).map(s=>(clean(s.address||s.name)+', '+(s.city||'')+', TX').replace(/\s+/g,'+'));
+                      const home=(((routeStart.label==='Other'?customStart:routeStart.address)||'2870 Keller Hicks Rd, Keller, TX')).replace(/\s+/g,'+');
+                      window.open('https://www.google.com/maps/dir/'+home+'/'+stops.join('/')+'/'+home,'_blank');
                     }}>Open Full Route</button>
                   </div>
                 </div>
