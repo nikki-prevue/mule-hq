@@ -602,7 +602,7 @@ You guide Nikki through her day: suggest routes, capture visit notes, generate p
                     <span style={{fontSize:12,fontWeight:700,color:C.goldDark,cursor:'pointer'}} onClick={()=>{
                       const stops=route.sort((a,b)=>a.order-b.order).map(s=>encodeURIComponent((s.address||s.name)+' '+(s.city||'')+' TX'));
                       const home=encodeURIComponent((routeStart.label==='Other'?customStart:routeStart.address)||'2870 Keller Hicks Rd, Keller, TX');
-                      window.open('https://www.google.com/maps/dir/'+home+'/'+stops.join('/')+'/'+home,'_blank');
+                      window.open('https://www.google.com/maps/dir/?api=1&origin='+home+'&destination='+home+'&waypoints='+stops.join('|')+'&travelmode=driving','_blank');
                     }}>Google Maps</span>
                   )}
                   <span style={{fontSize:12,fontWeight:700,color:C.sage,cursor:'pointer'}} onClick={optimizeRoute}>{optimizing?'Optimizing...':'Optimize'}</span>
@@ -743,7 +743,7 @@ You guide Nikki through her day: suggest routes, capture visit notes, generate p
                     <button style={btn.primary} onClick={()=>{
                       const stops=route.sort((a,b)=>a.order-b.order).map(s=>encodeURIComponent((s.address||s.name)+' '+(s.city||'')+' TX'));
                       const home=encodeURIComponent((routeStart.label==='Other'?customStart:routeStart.address)||'2870 Keller Hicks Rd, Keller, TX');
-                      window.open('https://www.google.com/maps/dir/'+home+'/'+stops.join('/')+'/'+home,'_blank');
+                      window.open('https://www.google.com/maps/dir/?api=1&origin='+home+'&destination='+home+'&waypoints='+stops.join('|')+'&travelmode=driving','_blank');
                     }}>Open Full Route</button>
                   </div>
                 </div>
