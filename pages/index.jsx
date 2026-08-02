@@ -308,7 +308,7 @@ export default function MuleHQ() {
   async function saveOfficeDetails(){
     if(!selectedOffice) return;
     const o=selectedOffice;
-    await fetch('/api/offices',{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({id:o.id,doctor:o.doctor,contact:o.contact,phone:o.phone,hours:o.hours,closedDays:o.closedDays,territory:o.territory,dso:o.dso,gift:o.gift,address:o.address,tier:o.tier,nextAction:o.nextAction,openFollowUps:o.openFollowUps})});
+    await fetch('/api/offices',{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({id:o.id,doctor:o.doctor,contact:o.contact,phone:o.phone,hours:o.hours,closedDays:o.closedDays,territory:o.territory,dso:o.dso,gift:o.gift,address:o.address,tier:o.tier,nextAction:o.nextAction,openFollowUps:o.openFollowUps,atAGlance:o.atAGlance})});
     await loadAll();
   }
   async function saveNoteEdit(){
@@ -836,6 +836,7 @@ You guide Nikki through her day: suggest routes, capture visit notes, generate p
                               {dnt&&<span style={badge(C.hot)}>DNT</span>}
                             </div>
                             {o.doctor&&<div style={{fontSize:11,fontWeight:500,color:C.choc3,marginTop:2}}>{o.doctor}</div>}
+                            {o.atAGlance&&<div style={{fontSize:11,fontWeight:600,color:C.goldDark,marginTop:4,lineHeight:1.4,background:'#FFF7E6',borderLeft:'3px solid '+C.gold,padding:'4px 8px',borderRadius:5}}>{o.atAGlance}</div>}
                           </div>
                           <div style={{fontSize:12,fontWeight:500,color:C.choc3,alignSelf:'center'}}>{o.contact||'—'}</div>
                           <div style={{alignSelf:'center'}}><span style={badge(o.tier==='hot'?C.hot:C.goldDark)}>{o.tier}</span></div>
@@ -1206,7 +1207,7 @@ You guide Nikki through her day: suggest routes, capture visit notes, generate p
               {!ao.address&&!ao.phone&&!ao.hours&&<div style={{color:C.choc3}}>No contact details yet - add them under Edit details.</div>}
             </div>
 
-            {ao.atAGlance&&<div style={{fontSize:13,fontStyle:'italic',color:C.choc2,marginBottom:14,lineHeight:1.6}}>{ao.atAGlance}</div>}
+            {ao.atAGlance&&<div style={{fontSize:13,fontWeight:600,color:C.goldDark,marginBottom:14,lineHeight:1.6,background:'#FFF7E6',borderLeft:'3px solid '+C.gold,padding:'8px 12px',borderRadius:8}}>{ao.atAGlance}</div>}
 
             <div style={{fontSize:12,fontWeight:600,color:C.choc3,textTransform:'uppercase',letterSpacing:'0.06em',marginBottom:8}}>Notes</div>
             <div style={{display:'flex',flexDirection:'column',gap:8,marginBottom:12,maxHeight:300,overflowY:'auto'}}>
@@ -1262,6 +1263,7 @@ You guide Nikki through her day: suggest routes, capture visit notes, generate p
                   <div style={{gridColumn:'1/-1'}}><div style={label}>Address</div><input style={{...input,marginBottom:0,fontSize:13}} value={selectedOffice.address||''} onChange={e=>{const val=e.target.value;setSelectedOffice(p=>({...p,address:val}));}}/></div>
                   <div style={{gridColumn:'1/-1'}}><div style={label}>Next action</div><input style={{...input,marginBottom:0,fontSize:13,color:C.sage}} value={selectedOffice.nextAction||''} onChange={e=>{const val=e.target.value;setSelectedOffice(p=>({...p,nextAction:val}));}}/></div>
                   <div style={{gridColumn:'1/-1'}}><div style={label}>Open follow-ups</div><textarea style={{...input,marginBottom:0,fontSize:13,minHeight:56}} value={selectedOffice.openFollowUps||''} onChange={e=>{const val=e.target.value;setSelectedOffice(p=>({...p,openFollowUps:val}));}}/></div>
+                  <div style={{gridColumn:'1/-1'}}><div style={label}>Note (shows on office list)</div><textarea style={{...input,marginBottom:0,fontSize:13,minHeight:56}} value={selectedOffice.atAGlance||''} onChange={e=>{const val=e.target.value;setSelectedOffice(p=>({...p,atAGlance:val}));}}/></div>
                 </div>
                 <button style={{...btn.primary,marginTop:12,width:'100%'}} onClick={async()=>{await saveOfficeDetails();alert('Saved.');}}>Save details</button>
                 <div style={{marginTop:16}}>
