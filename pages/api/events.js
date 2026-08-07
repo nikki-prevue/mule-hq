@@ -43,7 +43,7 @@ export default async function handler(req, res) {
   try {
     if (req.method === 'GET') {
       const data = await query('GET', 'events?order=date.asc&select=*');
-      return res.status(200).json(data.map(mapOut));
+      return res.status(200).json(Array.isArray(data) ? data.map(mapOut) : []);
     }
     if (req.method === 'POST') {
       const { id, ...body } = req.body;
