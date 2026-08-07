@@ -243,7 +243,7 @@ export default function MuleHQ() {
       const rt = Array.isArray(ro) ? ro : [];
       const dcs = Array.isArray(dc) ? dc : [];
       setOffices(offs); setVisits(vis); setTasks(tks);
-      setSupplies(sups); setLunches(lun); setDoctors(dcs); setCalEvents(Array.isArray(evd)?evd:[]);
+      setSupplies(sups); setLunches(lun); setDoctors(Array.isArray(dcs)?dcs:[]); setCalEvents(Array.isArray(evd)?evd:[]);
       if (rt.length > 0) setRoute(rt);
       generateBriefing(offs, tks);
     } catch (e) { console.error(e); }
