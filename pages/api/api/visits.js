@@ -1,0 +1,100 @@
+const SUPABASE_URL = process.env.SUPABASE_URL;
+const SUPABASE_KEY = process.env.SUPABASE_SERVICE_KEY;
+
+async function query(method, path, body) {
+  const res = await fetch(`${SUPABASE_URL}/rest/v1/${path}`, {
+    method,
+    headers: {
+      'apikey': SUPABASE_KEY,
+      'Authorization': `Bearer ${SUPABASE_KEY}`,
+      'Content-Type': 'application/json',
+      'Prefer': 'return=representation'
+    },
+    body: body ? JSON.stringify(body) : undefined
+  });
+  const text = await res.text();
+  return text ? JSON.parse(text) : [];
+}
+
+function mapOut(v) {
+  return {
+    id: v.id,
+    office: v.office || '',
+    doctor: v.doctor || '',
+    contact: v.contact || '',
+    gift: v.gift || '',
+    notes: v.notes || '',
+    nextAction: v.next_action || '',
+    tier: v.tier || '',
+    date: v.date || '',
+  };
+}
+
+async function recomputeLastVisit(office) {
+  try {
+    const rows = await query('GET', `visits?office=ilike.${encodeURIComponent(office)}&select=date&order=date.desc&limit=1`);
+    const maxd = (rows && rows[0]) ? rows[0].date : null;
+    if (maxd) await query('PATCH', `offices?name=ilike.${encodeURIComponent(office)}`, { last_visit: maxd });
+  } catch (e) {}
+}
+
+export default async function handler(req, res) {
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  try {
+    if (req.method === 'GET') {
+      const data = await query('GET', 'visits?order=created_at.desc&select=*');
+      return res.status(200).json(data.map(mapOut));
+    }
+    if (req.method === 'POST') {
+      const { id, ...body } = req.body;
+      const mapped = {
+        office: body.office,
+        doctor: body.doctor || '',
+        contact: body.contact || '',
+        gift: body.gift || '',
+        notes: body.notes || '',
+        next_action: body.nextAction || '',
+        tier: body.tier || 'warm',
+        date: body.date || new Date().toISOString().split('T')[0],
+      };
+      const data = await query('POST', 'visits', mapped);
+      // propagate touchpoint to the office profile (notes + last visit/attempt + next action)
+      try {
+        if (mapped.office) {
+          const offs = await query('GET', `offices?name=eq.${encodeURIComponent(mapped.office)}&select=id,notes,last_visit`);
+          if (offs && offs[0]) {
+            const line = mapped.notes || '';
+            const newNotes = line ? (offs[0].notes ? line + '\n' + offs[0].notes : line) : offs[0].notes;
+            const patch = { notes: newNotes };
+            if (body.attempted) patch.last_attempt = mapped.date;
+            else { const prev = offs[0].last_visit; patch.last_visit = (prev && String(prev) > String(mapped.date)) ? prev : mapped.date; }
+            if (mapped.next_action) patch.next_action = mapped.next_action;
+            await query('PATCH', `offices?id=eq.${offs[0].id}`, patch);
+          }
+        }
+      } catch (e) { console.error('office propagation:', e.message); }
+      return res.status(200).json(mapOut(data[0] || {}));
+    }
+    if (req.method === 'PATCH') {
+      const { id, ...body } = req.body;
+      const upd = {};
+      if (body.notes !== undefined) upd.notes = body.notes;
+      if (body.date !== undefined) upd.date = body.date;
+      if (body.gift !== undefined) upd.gift = body.gift;
+      const data = await query('PATCH', `visits?id=eq.${id}`, upd);
+      const office = (data && data[0]) ? data[0].office : null;
+      if (office && body.date !== undefined) await recomputeLastVisit(office);
+      return res.status(200).json(mapOut(data[0] || {}));
+    }
+    if (req.method === 'DELETE') {
+      const id = req.body.id;
+      let office = null;
+      try { const v = await query('GET', `visits?id=eq.${id}&select=office`); office = (v && v[0]) ? v[0].office : null; } catch (e) {}
+      await query('DELETE', `visits?id=eq.${id}`);
+      if (office) await recomputeLastVisit(office);
+      return res.status(200).json({ success: true });
+    }
+  } catch (e) {
+    return res.status(500).json({ error: e.message });
+  }
+}
