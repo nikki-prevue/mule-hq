@@ -138,6 +138,8 @@ export default function MuleHQ() {
   const [ssc, setSsc] = useState([]);
   const [sscOpen, setSscOpen] = useState(null);
   const [sscNote, setSscNote] = useState('');
+  const [sscShowCal, setSscShowCal] = useState(false);
+  const [sscShowScript, setSscShowScript] = useState(false);
   const [route, setRoute] = useState([]);
   const [doctors, setDoctors] = useState([]);
   const [newDoctorName, setNewDoctorName] = useState('');
@@ -1116,6 +1118,24 @@ You guide Nikki through her day: suggest routes, capture visit notes, generate p
   const paidN=ssc.filter(m=>m.duesPaid).length;
   const rsvpN=ssc.filter(isRsvp).length;
   const callN=ssc.filter(m=>m.confirmCall).length;
+  const EV=[
+    {d:'Sep 17, 2026',club:'HYGIENE',sp:'Brittany Simon',t:'Stretching the Shrinking Hour / Productive Hygienist / Treatment Enrollment Mastery',v:'Benco Dental Training Room, 501 Lakeside Pkwy Ste 100, Flower Mound',time:'Check-in 5:00, Seminar 6:00'},
+    {d:'Oct 8, 2026',club:'SSC',sp:'Judy McIntyre',t:'Clarity in Endodontics for Multidisciplinary Treatment Planning',v:'Quartino Grandscape, 5754 Grandscape Blvd #200, The Colony',time:'Check-in 5:00, Seminar 6:00'},
+    {d:'Nov 11, 2026',club:'SSC',sp:'Todd Shoenbaum',t:'Prosthetic Implant Complications: Causes, Prevention and Management',v:'Quartino Grandscape, The Colony',time:'Check-in 5:00, Seminar 6:00'},
+    {d:'Feb 18, 2027',club:'SSC',sp:'Lora Hooper',t:'From Spit to Strategy: Saliva Testing That Transforms Perio Protocols',v:'Quartino Grandscape, The Colony',time:'Check-in 5:00, Seminar 6:00'},
+    {d:'Mar 25, 2027',club:'SSC',sp:'Karen Baker',t:'Drug Reactions and Interactions Important in Dental Practice',v:'Quartino Grandscape, The Colony',time:'Check-in 5:00, Seminar 6:00'},
+    {d:'Apr 9-10, 2027',club:'SSC',sp:'Texas Regional Symposium',t:'See supplemental packet',v:'',time:''},
+    {d:'Apr 20, 2027',club:'HYGIENE',sp:'Cliff Campbell',t:'Wound Healing - Alternatives for the Dental Practice',v:'Lancaster Theatre, 300 S Main St, Grapevine',time:'Check-in 5:00, Seminar 6:00'},
+    {d:'May 27, 2027',club:'HYGIENE',sp:'Irene Iancu',t:'The RDH Checklist for Implant Maintenance and Identifying Failure',v:'Lancaster Theatre, Grapevine',time:'Check-in 5:00, Seminar 6:00'}
+  ];
+  const SCRIPT=[
+    {h:'OPEN',b:'Hi, this is Nikki with ROOT Perio - do you have a quick minute? I am calling about the 2026-2027 Seattle Study Club season and want to make sure Dr. [Name] is set for their spot.'},
+    {h:'THE SEASON',b:'First Seattle Study Club dinner is Oct 8 at Quartino Grandscape in The Colony - check-in 5, seminar 6. Four dinners this season plus the Texas Regional Symposium in April, and the Hygiene Club meetings are included.'},
+    {h:'VALUE',b:'Membership is $1,295 and it covers the doctor plus hygienist(s) for all the hygiene meetings too - strong CE for the whole team.'},
+    {h:'DUES',b:'To lock in the spot, dues are due before Aug 31. Easiest is a secure Square link I can text or email - about a minute - or a check works just as well.'},
+    {h:'CLOSE',b:'Can I count on Dr. [Name] for this season? I will send the link right over. Thank you so much!'},
+    {h:'VOICEMAIL',b:'Hi, this is Nikki with ROOT Perio about the 2026-2027 Seattle Study Club season. I would love to confirm Dr. [Name]s spot - dues are due before Aug 31 and I can text a quick Square link. Call or text me back at 817-893-7925. Thanks so much!'}
+  ];
   const cols=[
     {k:'inv',label:'Invite',full:'Email Invite Sent',done:(m)=>!!m.saveDatesSent,date:(m)=>m.saveDatesSent,tap:(m)=>updateSsc(m.id,{saveDatesSent:m.saveDatesSent?null:today})},
     {k:'call',label:'Call',full:'Confirmation Call',done:(m)=>!!m.confirmCall,date:(m)=>m.confirmCall,tap:(m)=>updateSsc(m.id,{confirmCall:m.confirmCall?null:today})},
@@ -1130,11 +1150,41 @@ You guide Nikki through her day: suggest routes, capture visit notes, generate p
         <div style={sectionTitle}>Seattle Study Club</div>
         <div style={{fontSize:11,fontWeight:600,color:C.choc3}}>{ssc.length} doctors</div>
       </div>
-      <div style={{display:'flex',gap:16,marginBottom:14,flexWrap:'wrap'}}>
+      <div style={{display:'flex',gap:16,marginBottom:12,flexWrap:'wrap'}}>
         <div style={{fontSize:12,fontWeight:600,color:C.choc3}}>Calls: <span style={{color:C.goldDark}}>{callN}/{ssc.length}</span></div>
         <div style={{fontSize:12,fontWeight:600,color:C.choc3}}>Confirmed: <span style={{color:C.goldDark}}>{rsvpN}/{ssc.length}</span></div>
         <div style={{fontSize:12,fontWeight:600,color:C.choc3}}>Dues paid: <span style={{color:C.sage}}>{paidN}/{ssc.length}</span></div>
       </div>
+      <div style={{display:'flex',gap:8,marginBottom:12,flexWrap:'wrap'}}>
+        <button style={{...btn.secondary,...btn.sm}} onClick={()=>setSscShowCal(v=>!v)}>{sscShowCal?'Hide Dates':'Season Dates & Details'}</button>
+        <button style={{...btn.secondary,...btn.sm}} onClick={()=>setSscShowScript(v=>!v)}>{sscShowScript?'Hide Script':'Call Script'}</button>
+      </div>
+      {sscShowCal&&(
+        <div style={{...glass({borderRadius:14}),padding:'12px 14px',marginBottom:14}}>
+          <div style={{fontSize:11,fontWeight:700,color:C.choc,marginBottom:10,lineHeight:1.6}}>Dues due before Mon Aug 31. Tuition $1,295 (covers doctor + hygienist for all Hygiene meetings). Pay: square.link/u/D2UYUbua, or check to Amit M Patel DDS MSD, 651 Cross Timbers Rd #102, Flower Mound. Director: Dr. Amit Patel. Coordinators: Alyse Palos, Amanda Cline.</div>
+          {EV.map((e,i)=>(
+            <div key={i} style={{padding:'8px 0',borderTop:i>0?'1px solid rgba(122,96,80,0.15)':'none'}}>
+              <div style={{display:'flex',gap:8,alignItems:'baseline'}}>
+                <div style={{fontSize:12,fontWeight:700,color:C.goldDark,minWidth:96}}>{e.d}</div>
+                <div style={{fontSize:9,fontWeight:700,color:C.choc3,letterSpacing:0.3}}>{e.club}</div>
+              </div>
+              <div style={{fontSize:12,fontWeight:600,color:C.choc}}>{e.sp}{e.t?' - '+e.t:''}</div>
+              {e.v&&<div style={{fontSize:10,color:C.choc3}}>{e.v}{e.time?' | '+e.time:''}</div>}
+            </div>
+          ))}
+        </div>
+      )}
+      {sscShowScript&&(
+        <div style={{...glass({borderRadius:14}),padding:'12px 14px',marginBottom:14}}>
+          <div style={{fontSize:10,fontWeight:500,color:C.choc3,marginBottom:8,fontStyle:'italic'}}>Confirmation-call verbiage. Swap [Name] for the doctor. Tell me if you want the wording changed.</div>
+          {SCRIPT.map((s,i)=>(
+            <div key={i} style={{marginBottom:8}}>
+              <div style={{fontSize:10,fontWeight:700,color:C.goldDark,letterSpacing:0.4}}>{s.h}</div>
+              <div style={{fontSize:12,color:C.choc,lineHeight:1.6}}>{s.b}</div>
+            </div>
+          ))}
+        </div>
+      )}
       <div style={{...glass({borderRadius:16}),overflow:'hidden'}}>
         <div style={{display:'flex',alignItems:'center',padding:'8px 10px',borderBottom:'1px solid rgba(255,255,255,0.35)',background:'rgba(255,245,230,0.25)'}}>
           <div style={{flex:1,minWidth:0,fontSize:10,fontWeight:700,color:C.choc3,letterSpacing:0.5}}>DOCTOR</div>
@@ -1158,9 +1208,9 @@ You guide Nikki through her day: suggest routes, capture visit notes, generate p
             {open&&(
               <div style={{padding:'2px 14px 16px',borderTop:'1px dashed rgba(122,96,80,0.25)'}}>
                 <div style={{display:'flex',flexWrap:'wrap',gap:12,margin:'10px 0'}}>
+                  {m.cell?<div style={{fontSize:11,color:C.choc3}}>Direct cell: <span style={{color:C.sage,fontWeight:700}}>{m.cell}</span></div>:<div style={{fontSize:11,color:'#b45',fontWeight:600,fontStyle:'italic'}}>Direct cell: not on file - add from Alyse's list</div>}
+                  {m.phone&&<div style={{fontSize:11,color:C.choc3}}>Office: <span style={{color:C.choc,fontWeight:600}}>{m.phone}</span></div>}
                   {m.email&&<div style={{fontSize:11,color:C.choc3}}>Email: <span style={{color:C.choc,fontWeight:600}}>{m.email}</span></div>}
-                  {m.phone&&<div style={{fontSize:11,color:C.choc3}}>Phone: <span style={{color:C.choc,fontWeight:600}}>{m.phone}</span></div>}
-                  {m.cell&&<div style={{fontSize:11,color:C.choc3}}>Cell: <span style={{color:C.choc,fontWeight:600}}>{m.cell}</span></div>}
                 </div>
                 <div style={{display:'flex',flexWrap:'wrap',gap:8,marginBottom:12}}>
                   {cols.map(c=>{const dt=c.date(m);const dn=c.done(m);return(
@@ -1179,7 +1229,7 @@ You guide Nikki through her day: suggest routes, capture visit notes, generate p
         );})}
         {ssc.length===0&&<div style={{padding:20,textAlign:'center',fontSize:12,color:C.choc3}}>No SSC doctors loaded yet.</div>}
       </div>
-      <div style={{fontSize:10,fontWeight:500,color:C.choc3,marginTop:10,lineHeight:1.6}}>Tap a box to mark a step done. Tap a doctor to open their card, see dates, and log a date-stamped note. Order follows Amanda: Invite (Email Invite Sent) - Call - RSVP - Dues (reminder) - Paid.</div>
+      <div style={{fontSize:10,fontWeight:500,color:C.choc3,marginTop:10,lineHeight:1.6}}>Tap a box to mark a step done. Tap a doctor to open their card, see dates, and log a date-stamped note. Order: Invite (Email Invite Sent) - Call - RSVP - Dues (reminder) - Paid.</div>
     </div>
   );
 })()}
