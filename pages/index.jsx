@@ -136,6 +136,8 @@ export default function MuleHQ() {
   const [supplies, setSupplies] = useState([]);
   const [lunches, setLunches] = useState([]);
   const [ssc, setSsc] = useState([]);
+  const [sscOpen, setSscOpen] = useState(null);
+  const [sscNote, setSscNote] = useState('');
   const [route, setRoute] = useState([]);
   const [doctors, setDoctors] = useState([]);
   const [newDoctorName, setNewDoctorName] = useState('');
@@ -358,6 +360,7 @@ export default function MuleHQ() {
   }
   async function updateLunch(id,updates) { await fetch('/api/lunches',{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({id,...updates})}); await loadAll(); }
   async function updateSsc(id,updates) { await fetch('/api/ssc',{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({id,...updates})}); await loadAll(); }
+  async function addSscNote(m){ const txt=(sscNote||'').trim(); if(!txt)return; const stamp='['+new Date().toLocaleDateString('en-US',{month:'short',day:'numeric'})+'] '+txt; await updateSsc(m.id,{notes:m.notes?stamp+'\n'+m.notes:stamp}); setSscNote(''); }
   async function saveLunchEdit() { if(!editLunch) return; await fetch('/api/lunches',{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify(editLunch)}); setEditLunch(null); await loadAll(); }
   async function deleteLunch(id) { if(!confirm('Remove this lunch?')) return; await fetch('/api/lunches',{method:'DELETE',headers:{'Content-Type':'application/json'},body:JSON.stringify({id})}); setEditLunch(null); await loadAll(); }
 
@@ -1108,18 +1111,19 @@ You guide Nikki through her day: suggest routes, capture visit notes, generate p
         {/* ══ SUPPLIES ══════════════════════════════════════ */}
 {tab==='ssc'&&(()=>{
   const today=new Date().toISOString().slice(0,10);
+  const stamp=new Date().toLocaleDateString('en-US',{month:'short',day:'numeric'});
   const isRsvp=(m)=>['Confirmed','Yes','RSVP'].includes(m.status);
   const paidN=ssc.filter(m=>m.duesPaid).length;
-  const callN=ssc.filter(m=>m.confirmCall).length;
   const rsvpN=ssc.filter(isRsvp).length;
+  const callN=ssc.filter(m=>m.confirmCall).length;
   const cols=[
-    {k:'std',label:'STD',done:(m)=>!!m.saveDatesSent,tap:(m)=>updateSsc(m.id,{saveDatesSent:m.saveDatesSent?null:today})},
-    {k:'call',label:'Call',done:(m)=>!!m.confirmCall,tap:(m)=>updateSsc(m.id,{confirmCall:m.confirmCall?null:today})},
-    {k:'rsvp',label:'RSVP',done:(m)=>isRsvp(m),tap:(m)=>updateSsc(m.id,{status:isRsvp(m)?'Emailed':'Confirmed'})},
-    {k:'due',label:'Due$',done:(m)=>!!m.duesReminderSent,tap:(m)=>updateSsc(m.id,{duesReminderSent:m.duesReminderSent?null:today})},
-    {k:'paid',label:'Paid',done:(m)=>!!m.duesPaid,tap:(m)=>updateSsc(m.id,{duesPaid:!m.duesPaid})}
+    {k:'inv',label:'Invite',full:'Email Invite Sent',done:(m)=>!!m.saveDatesSent,date:(m)=>m.saveDatesSent,tap:(m)=>updateSsc(m.id,{saveDatesSent:m.saveDatesSent?null:today})},
+    {k:'call',label:'Call',full:'Confirmation Call',done:(m)=>!!m.confirmCall,date:(m)=>m.confirmCall,tap:(m)=>updateSsc(m.id,{confirmCall:m.confirmCall?null:today})},
+    {k:'rsvp',label:'RSVP',full:'Confirmed Attending',done:(m)=>isRsvp(m),date:(m)=>'yes',tap:(m)=>updateSsc(m.id,{status:isRsvp(m)?'Emailed':'Confirmed'})},
+    {k:'due',label:'Dues',full:'Dues Reminder Sent',done:(m)=>!!m.duesReminderSent,date:(m)=>m.duesReminderSent,tap:(m)=>updateSsc(m.id,{duesReminderSent:m.duesReminderSent?null:today})},
+    {k:'paid',label:'Paid',full:'Dues Paid',done:(m)=>!!m.duesPaid,date:(m)=>'yes',tap:(m)=>updateSsc(m.id,{duesPaid:!m.duesPaid})}
   ];
-  const cw=40;
+  const cw=42;
   return(
     <div>
       <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:8}}>
@@ -1127,8 +1131,8 @@ You guide Nikki through her day: suggest routes, capture visit notes, generate p
         <div style={{fontSize:11,fontWeight:600,color:C.choc3}}>{ssc.length} doctors</div>
       </div>
       <div style={{display:'flex',gap:16,marginBottom:14,flexWrap:'wrap'}}>
-        <div style={{fontSize:12,fontWeight:600,color:C.choc3}}>Calls done: <span style={{color:C.goldDark}}>{callN}/{ssc.length}</span></div>
-        <div style={{fontSize:12,fontWeight:600,color:C.choc3}}>RSVPs: <span style={{color:C.goldDark}}>{rsvpN}/{ssc.length}</span></div>
+        <div style={{fontSize:12,fontWeight:600,color:C.choc3}}>Calls: <span style={{color:C.goldDark}}>{callN}/{ssc.length}</span></div>
+        <div style={{fontSize:12,fontWeight:600,color:C.choc3}}>Confirmed: <span style={{color:C.goldDark}}>{rsvpN}/{ssc.length}</span></div>
         <div style={{fontSize:12,fontWeight:600,color:C.choc3}}>Dues paid: <span style={{color:C.sage}}>{paidN}/{ssc.length}</span></div>
       </div>
       <div style={{...glass({borderRadius:16}),overflow:'hidden'}}>
@@ -1136,24 +1140,46 @@ You guide Nikki through her day: suggest routes, capture visit notes, generate p
           <div style={{flex:1,minWidth:0,fontSize:10,fontWeight:700,color:C.choc3,letterSpacing:0.5}}>DOCTOR</div>
           {cols.map(c=>(<div key={c.k} style={{width:cw,textAlign:'center',fontSize:9,fontWeight:700,color:C.choc3}}>{c.label}</div>))}
         </div>
-        {ssc.map((m,i)=>(
-          <div key={m.id} style={{display:'flex',alignItems:'center',padding:'10px',borderBottom:i<ssc.length-1?'1px solid rgba(255,255,255,0.3)':'none',background:i%2===0?'rgba(255,255,255,0.08)':'rgba(255,245,230,0.12)'}}>
-            <div style={{flex:1,minWidth:0,paddingRight:6}}>
-              <div style={{fontWeight:700,fontSize:12,color:C.choc,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{m.doctor||m.office||'Unnamed'}</div>
-              <div style={{fontSize:10,fontWeight:500,color:C.choc3,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{m.office}{m.location?' - '+m.location:''}</div>
+        {ssc.map((m,i)=>{const open=sscOpen===m.id;return(
+          <div key={m.id} style={{borderBottom:i<ssc.length-1?'1px solid rgba(255,255,255,0.3)':'none',background:i%2===0?'rgba(255,255,255,0.08)':'rgba(255,245,230,0.12)'}}>
+            <div style={{display:'flex',alignItems:'center',padding:'10px'}}>
+              <div onClick={()=>{setSscOpen(open?null:m.id);setSscNote('');}} style={{flex:1,minWidth:0,paddingRight:6,cursor:'pointer'}}>
+                <div style={{fontWeight:700,fontSize:12,color:C.choc,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{open?'▾ ':'▸ '}{m.doctor||m.office||'Unnamed'}</div>
+                <div style={{fontSize:10,fontWeight:500,color:C.choc3,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{m.office}{m.location?' - '+m.location:''}</div>
+              </div>
+              {cols.map(c=>{const d=c.done(m);return(
+                <div key={c.k} style={{width:cw,display:'flex',justifyContent:'center'}}>
+                  <div onClick={()=>c.tap(m)} style={{width:22,height:22,borderRadius:6,cursor:'pointer',background:d?C.sage:'transparent',border:d?('1px solid '+C.sage):'1px solid rgba(122,96,80,0.4)',display:'flex',alignItems:'center',justifyContent:'center'}}>
+                    {d&&<div style={{width:9,height:9,borderRadius:2,background:'#fff'}}></div>}
+                  </div>
+                </div>
+              );})}
             </div>
-            {cols.map(c=>{const d=c.done(m);return(
-              <div key={c.k} style={{width:cw,display:'flex',justifyContent:'center'}}>
-                <div onClick={()=>c.tap(m)} style={{width:22,height:22,borderRadius:6,cursor:'pointer',background:d?C.sage:'transparent',border:d?('1px solid '+C.sage):'1px solid rgba(122,96,80,0.4)',display:'flex',alignItems:'center',justifyContent:'center'}}>
-                  {d&&<div style={{width:9,height:9,borderRadius:2,background:'#fff'}}></div>}
+            {open&&(
+              <div style={{padding:'2px 14px 16px',borderTop:'1px dashed rgba(122,96,80,0.25)'}}>
+                <div style={{display:'flex',flexWrap:'wrap',gap:12,margin:'10px 0'}}>
+                  {m.email&&<div style={{fontSize:11,color:C.choc3}}>Email: <span style={{color:C.choc,fontWeight:600}}>{m.email}</span></div>}
+                  {m.phone&&<div style={{fontSize:11,color:C.choc3}}>Phone: <span style={{color:C.choc,fontWeight:600}}>{m.phone}</span></div>}
+                  {m.cell&&<div style={{fontSize:11,color:C.choc3}}>Cell: <span style={{color:C.choc,fontWeight:600}}>{m.cell}</span></div>}
+                </div>
+                <div style={{display:'flex',flexWrap:'wrap',gap:8,marginBottom:12}}>
+                  {cols.map(c=>{const dt=c.date(m);const dn=c.done(m);return(
+                    <div key={c.k} style={{fontSize:10,fontWeight:600,padding:'4px 8px',borderRadius:8,background:dn?'rgba(122,150,120,0.18)':'rgba(122,96,80,0.08)',color:dn?C.sage:C.choc3}}>{c.full}{dn?(dt&&dt!=='yes'?': '+fmtD(dt):': done'):''}</div>
+                  );})}
+                </div>
+                <div style={{fontSize:10,fontWeight:700,color:C.choc3,marginBottom:6,letterSpacing:0.4}}>ACTIVITY LOG</div>
+                {m.notes?<div style={{fontSize:11,color:C.choc,lineHeight:1.7,whiteSpace:'pre-wrap',marginBottom:10,background:'rgba(255,255,255,0.35)',borderRadius:8,padding:'8px 10px'}}>{m.notes}</div>:<div style={{fontSize:11,color:C.choc3,marginBottom:10}}>No notes yet.</div>}
+                <div style={{display:'flex',gap:6}}>
+                  <input value={sscNote} onChange={e=>setSscNote(e.target.value)} placeholder={'Add note (auto-stamped '+stamp+')'} style={{flex:1,padding:'8px 10px',borderRadius:8,border:'1px solid rgba(122,96,80,0.3)',fontSize:12,background:'rgba(255,255,255,0.6)',color:C.choc}}/>
+                  <button style={btn.primary} onClick={()=>addSscNote(m)}>Log</button>
                 </div>
               </div>
-            );})}
+            )}
           </div>
-        ))}
+        );})}
         {ssc.length===0&&<div style={{padding:20,textAlign:'center',fontSize:12,color:C.choc3}}>No SSC doctors loaded yet.</div>}
       </div>
-      <div style={{fontSize:10,fontWeight:500,color:C.choc3,marginTop:10,lineHeight:1.6}}>Tap a box to mark it done. STD = Save-the-Date sent. Call = confirmation call. RSVP = confirmed attending. Due$ = dues reminder sent. Paid = dues paid.</div>
+      <div style={{fontSize:10,fontWeight:500,color:C.choc3,marginTop:10,lineHeight:1.6}}>Tap a box to mark a step done. Tap a doctor to open their card, see dates, and log a date-stamped note. Order follows Amanda: Invite (Email Invite Sent) - Call - RSVP - Dues (reminder) - Paid.</div>
     </div>
   );
 })()}
