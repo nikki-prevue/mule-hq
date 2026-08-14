@@ -42,6 +42,7 @@ function mapOut(o) {
     lastAttempt: o.last_attempt || null,
     lat: o.lat != null ? o.lat : null,
     lon: o.lon != null ? o.lon : null,
+    repOwner: o.rep_owner || 'Nikki',
   };
 }
 
@@ -70,6 +71,7 @@ function mapIn(data) {
   if (data.lastAttempt !== undefined) mapped.last_attempt = data.lastAttempt;
   if (data.lat !== undefined) mapped.lat = data.lat;
   if (data.lon !== undefined) mapped.lon = data.lon;
+  if (data.repOwner !== undefined) mapped.rep_owner = data.repOwner;
   return mapped;
 }
 

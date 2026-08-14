@@ -431,6 +431,7 @@ You guide Nikki through her day: suggest routes, capture visit notes, generate p
         if(BLOCKED.some(b=>n.includes(b)))return false;
         if(ON_HOLD.some(h=>n.includes(h)))return false;
         if(o.status==='Do Not Target'||o.status==='On Hold - Pending Info')return false;
+        if(o.repOwner&&o.repOwner!=='Nikki')return false;
         return true;
       }).map(o=>{
         const days=o.lastVisit?Math.floor((now-new Date(o.lastVisit))/864e5):90;
@@ -441,8 +442,9 @@ You guide Nikki through her day: suggest routes, capture visit notes, generate p
         const drop=(needPads&&refPads)||(needCards&&cards);
         const task=ptasks.some(t=>t.includes(o.name.toLowerCase().slice(0,10))&&(t.includes('call')||t.includes('confirm')||t.includes('lock')));
         const override=drop||task;
-        const t1=never||days>=25||override;
-        const t2=days>=18&&days<25;
+        const cadence=o.topReferrer?14:(o.tier==='hot'?14:o.tier==='warm'?30:90);
+        const t1=never||days>=cadence||override;
+        const t2=days>=Math.round(cadence*0.6)&&days<cadence;
         if(!t1&&!t2)return null;
         let sc=0;
         if(days>=30)sc+=50; else if(days>=25)sc+=35; else if(never)sc+=40; else if(override)sc+=35; else if(t2)sc+=10;
@@ -466,6 +468,7 @@ You guide Nikki through her day: suggest routes, capture visit notes, generate p
         const n=o.name.toLowerCase();
         if(BLOCKED.some(b=>n.includes(b))||ON_HOLD.some(h=>n.includes(h)))return false;
         if(o.status==='Do Not Target'||o.status==='On Hold - Pending Info')return false;
+        if(o.repOwner&&o.repOwner!=='Nikki')return false;
         const d=Math.floor((now-new Date(o.lastVisit))/864e5);
         return d>=15&&d<25;
       }).map(o=>({...o,daysSince:Math.floor((now-new Date(o.lastVisit))/864e5)})).sort((a,b)=>b.daysSince-a.daysSince).slice(0,5);
@@ -678,7 +681,7 @@ You guide Nikki through her day: suggest routes, capture visit notes, generate p
                           <input style={{...input,marginBottom:0,fontSize:12}} value={smartPlanSearch} onChange={e=>setSmartPlanSearch(e.target.value)} placeholder="Search offices..."/>
                           {smartPlanSearch.length>1&&(
                             <div style={{position:'absolute',top:'100%',left:0,right:0,...glass({borderRadius:12}),zIndex:60,maxHeight:160,overflowY:'auto',marginTop:4}}>
-                              {offices.filter(o=>o.status!=='Do Not Target'&&!['irving kids','shine and sparkle'].some(b=>o.name.toLowerCase().includes(b))&&!smartPlan.find(s=>s.id===o.id)&&o.name.toLowerCase().includes(smartPlanSearch.toLowerCase())).slice(0,5).map(o=>(
+                              {offices.filter(o=>o.status!=='Do Not Target'&&(!o.repOwner||o.repOwner==='Nikki')&&!['irving kids','shine and sparkle'].some(b=>o.name.toLowerCase().includes(b))&&!smartPlan.find(s=>s.id===o.id)&&o.name.toLowerCase().includes(smartPlanSearch.toLowerCase())).slice(0,5).map(o=>(
                                 <div key={o.id} onClick={()=>{setSmartPlan([...smartPlan,{...o,order:smartPlan.length+1,done:false,stopNote:''}]);setSmartPlanSearch('');}} style={{padding:'9px 14px',cursor:'pointer',borderBottom:'1px solid rgba(255,255,255,0.3)',fontSize:13,fontWeight:600}} onMouseEnter={e=>e.currentTarget.style.background='rgba(201,169,110,0.15)'} onMouseLeave={e=>e.currentTarget.style.background='transparent'}>
                                   <div>{o.name}</div><div style={{fontSize:10,color:C.choc3}}>{o.city} · {daysAgo(o.lastVisit)}</div>
                                 </div>
@@ -709,7 +712,7 @@ You guide Nikki through her day: suggest routes, capture visit notes, generate p
                   <input style={{...input,marginBottom:0}} value={routeSearch} onChange={e=>setRouteSearch(e.target.value)} placeholder="Search offices to add..." autoFocus/>
                   {routeSearch.length>0&&(
                     <div style={{position:'absolute',top:'100%',left:0,right:0,...glass({borderRadius:12}),zIndex:50,maxHeight:200,overflowY:'auto',marginTop:4}}>
-                      {offices.filter(o=>o.status!=='Do Not Target'&&!route.find(r=>r.name===o.name)&&(o.name.toLowerCase().includes(routeSearch.toLowerCase())||(o.city||'').toLowerCase().includes(routeSearch.toLowerCase()))).slice(0,6).map(o=>(
+                      {offices.filter(o=>o.status!=='Do Not Target'&&(!o.repOwner||o.repOwner==='Nikki')&&!route.find(r=>r.name===o.name)&&(o.name.toLowerCase().includes(routeSearch.toLowerCase())||(o.city||'').toLowerCase().includes(routeSearch.toLowerCase()))).slice(0,6).map(o=>(
                         <div key={o.id} onClick={()=>{updateRoute([...route,{...o,order:route.length+1,done:false,stopNote:''}]);setRouteSearch('');setShowRouteSearch(false);}} style={{padding:'10px 14px',cursor:'pointer',borderBottom:'1px solid rgba(255,255,255,0.3)',fontSize:13,fontWeight:600}} onMouseEnter={e=>e.currentTarget.style.background='rgba(201,169,110,0.15)'} onMouseLeave={e=>e.currentTarget.style.background='transparent'}>
                           <div>{o.name}</div><div style={{fontSize:11,color:C.choc3}}>{o.city} · {daysAgo(o.lastVisit)} · {o.tier}</div>
                         </div>
@@ -759,26 +762,46 @@ You guide Nikki through her day: suggest routes, capture visit notes, generate p
                 <div style={cardLabel}>Tasks</div>
                 <span style={{fontSize:12,fontWeight:700,color:C.goldDark,cursor:'pointer'}} onClick={()=>setShowAddTask(true)}>+ Add Task</span>
               </div>
-              {tasks.slice(0,12).map(t=>(
-                <div key={t.id} style={{padding:'10px 0',borderBottom:'1px solid rgba(255,255,255,0.4)'}}>
-                  <div style={{display:'flex',alignItems:'flex-start',gap:10}}>
-                    <div onClick={()=>toggleTask(t.id,t.done)} style={{width:19,height:19,border:`2px solid ${t.done?C.sage:'rgba(160,120,48,0.3)'}`,borderRadius:5,cursor:'pointer',flexShrink:0,marginTop:1,background:t.done?C.sage:'rgba(255,255,255,0.5)',display:'flex',alignItems:'center',justifyContent:'center',fontSize:11,color:'white',fontWeight:800}}>{t.done?'✓':''}</div>
-                    <div style={{flex:1}}>
-                      <div style={{fontSize:13,fontWeight:t.done?400:600,color:t.done?C.choc3:C.choc,textDecoration:t.done?'line-through':'none',lineHeight:1.4}}>{t.text}</div>
-                      {t.timestamp&&<div style={{fontSize:10,fontWeight:500,color:C.choc3,marginTop:2}}>Added {t.timestamp}</div>}
-                      {t.notes&&t.notes.split('\n').map((note,ni)=>(
-                        <div key={ni} style={{fontSize:11,fontWeight:500,color:C.choc3,marginTop:4,paddingLeft:10,borderLeft:`2px solid rgba(160,120,48,0.3)`,lineHeight:1.5}}>{note}</div>
-                      ))}
-                    </div>
-                    <span style={badge(t.priority==='urgent'?C.hot:t.priority==='week'?C.choc3:C.goldDark)}>{t.priority}</span>
-                    <div style={{display:'flex',gap:3,flexShrink:0}}>
-                      <span style={{cursor:'pointer',fontSize:10,fontWeight:700,color:C.goldDark,padding:'2px 6px',borderRadius:6,border:`1px solid ${C.gold}44`,background:`${C.gold}11`}} onClick={()=>{setTaskNoteModal(t);setTaskNoteText('');}}>+ Note</span>
-                      <span style={{cursor:'pointer',fontSize:10,fontWeight:700,color:C.choc3,padding:'2px 6px',borderRadius:6,border:'1px solid rgba(255,255,255,0.5)',background:'rgba(255,255,255,0.4)'}} onClick={()=>setEditTaskModal({...t})}>Edit</span>
-                      <span style={{cursor:'pointer',color:C.choc3,fontSize:17,lineHeight:1}} onClick={()=>deleteTask(t.id)}>×</span>
+              {(()=>{
+                const TYPE_ORDER=['DROP OFF','LUNCH','URGENT VISIT','VISIT','ERRAND','TASK','OTHER'];
+                const TYPE_LABEL={'DROP OFF':'Drop-Offs','LUNCH':'Lunches','URGENT VISIT':'Urgent Visits','VISIT':'Visits','ERRAND':'Errands','TASK':'To-Do','OTHER':'Other'};
+                const t0=new Date();t0.setHours(0,0,0,0);
+                const daysUntil=d=>{if(!d)return null;const dt=new Date(d);dt.setHours(0,0,0,0);return Math.round((dt-t0)/864e5);};
+                const prio={urgent:0,week:1,today:2};
+                const active=tasks.filter(t=>!t.done);
+                const groups={};
+                active.forEach(t=>{const k=(t.type&&TYPE_ORDER.includes(t.type))?t.type:'OTHER';(groups[k]=groups[k]||[]).push(t);});
+                Object.values(groups).forEach(arr=>arr.sort((a,b)=>{const da=daysUntil(a.dueDate),db=daysUntil(b.dueDate);if(da!==null&&db!==null&&da!==db)return da-db;if(da!==null&&db===null)return -1;if(da===null&&db!==null)return 1;return (prio[a.priority]??3)-(prio[b.priority]??3);}));
+                const dueLabel=d=>{const n=daysUntil(d);return n<0?`Overdue ${-n}d`:n===0?'Due today':n===1?'Due tomorrow':`Due in ${n}d`;};
+                const dueColor=d=>{const n=daysUntil(d);return n<=0?C.hot:n<=2?C.goldDark:C.choc3;};
+                const row=t=>(
+                  <div key={t.id} style={{padding:'10px 0',borderBottom:'1px solid rgba(255,255,255,0.4)'}}>
+                    <div style={{display:'flex',alignItems:'flex-start',gap:10}}>
+                      <div onClick={()=>toggleTask(t.id,t.done)} style={{width:19,height:19,border:`2px solid ${t.done?C.sage:'rgba(160,120,48,0.3)'}`,borderRadius:5,cursor:'pointer',flexShrink:0,marginTop:1,background:t.done?C.sage:'rgba(255,255,255,0.5)',display:'flex',alignItems:'center',justifyContent:'center',fontSize:11,color:'white',fontWeight:800}}>{t.done?'✓':''}</div>
+                      <div style={{flex:1}}>
+                        <div style={{fontSize:13,fontWeight:t.done?400:600,color:t.done?C.choc3:C.choc,textDecoration:t.done?'line-through':'none',lineHeight:1.4}}>{t.text}</div>
+                        {t.dueDate&&<div style={{fontSize:10,fontWeight:800,color:dueColor(t.dueDate),marginTop:2}}>{dueLabel(t.dueDate)}</div>}
+                        {t.timestamp&&<div style={{fontSize:10,fontWeight:500,color:C.choc3,marginTop:2}}>Added {t.timestamp}</div>}
+                        {t.notes&&t.notes.split('\n').map((note,ni)=>(
+                          <div key={ni} style={{fontSize:11,fontWeight:500,color:C.choc3,marginTop:4,paddingLeft:10,borderLeft:`2px solid rgba(160,120,48,0.3)`,lineHeight:1.5}}>{note}</div>
+                        ))}
+                      </div>
+                      <span style={badge(t.priority==='urgent'?C.hot:t.priority==='week'?C.choc3:C.goldDark)}>{t.priority}</span>
+                      <div style={{display:'flex',gap:3,flexShrink:0}}>
+                        <span style={{cursor:'pointer',fontSize:10,fontWeight:700,color:C.goldDark,padding:'2px 6px',borderRadius:6,border:`1px solid ${C.gold}44`,background:`${C.gold}11`}} onClick={()=>{setTaskNoteModal(t);setTaskNoteText('');}}>+ Note</span>
+                        <span style={{cursor:'pointer',fontSize:10,fontWeight:700,color:C.choc3,padding:'2px 6px',borderRadius:6,border:'1px solid rgba(255,255,255,0.5)',background:'rgba(255,255,255,0.4)'}} onClick={()=>setEditTaskModal({...t})}>Edit</span>
+                        <span style={{cursor:'pointer',color:C.choc3,fontSize:17,lineHeight:1}} onClick={()=>deleteTask(t.id)}>×</span>
+                      </div>
                     </div>
                   </div>
-                </div>
-              ))}
+                );
+                return TYPE_ORDER.filter(k=>groups[k]&&groups[k].length).map(k=>(
+                  <div key={k} style={{marginBottom:4}}>
+                    <div style={{fontSize:10,fontWeight:800,letterSpacing:'0.08em',textTransform:'uppercase',color:C.choc3,padding:'10px 0 2px'}}>{TYPE_LABEL[k]} · {groups[k].length}</div>
+                    {groups[k].map(row)}
+                  </div>
+                ));
+              })()}
               {tasks.filter(t=>t.done).length>0&&<div style={{fontSize:11,fontWeight:600,color:C.choc3,textAlign:'center',padding:'8px 0 0'}}>{tasks.filter(t=>t.done).length} completed</div>}
             </div>
           </div>

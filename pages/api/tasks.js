@@ -23,6 +23,9 @@ function mapOut(t) {
     text: t.text || '',
     priority: t.priority || 'today',
     done: t.done === true || t.done === 'true' ? true : false,
+    type: t.type || '',
+    dueDate: t.due_date || null,
+    notes: t.notes || '',
     createdAt: t.created_at,
   };
 }
@@ -36,19 +39,26 @@ export default async function handler(req, res) {
     }
     if (req.method === 'POST') {
       const { id, ...body } = req.body;
-      const data = await query('POST', 'tasks', {
+      const row = {
         text: body.text,
         priority: body.priority || 'today',
         done: false,
-      });
+      };
+      if (body.type !== undefined) row.type = body.type;
+      if (body.dueDate !== undefined) row.due_date = body.dueDate;
+      if (body.notes !== undefined) row.notes = body.notes;
+      const data = await query('POST', 'tasks', row);
       return res.status(200).json(mapOut(data[0] || {}));
     }
     if (req.method === 'PATCH') {
-      const { id, done, text, priority } = req.body;
+      const { id, done, text, priority, type, dueDate, notes } = req.body;
       const updates = {};
       if (done !== undefined) updates.done = done === true || done === 'true' ? true : false;
       if (text !== undefined) updates.text = text;
       if (priority !== undefined) updates.priority = priority;
+      if (type !== undefined) updates.type = type;
+      if (dueDate !== undefined) updates.due_date = dueDate;
+      if (notes !== undefined) updates.notes = notes;
       const data = await query('PATCH', `tasks?id=eq.${id}`, updates);
       return res.status(200).json(mapOut(data[0] || {}));
     }
