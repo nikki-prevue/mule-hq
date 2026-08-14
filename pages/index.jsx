@@ -126,7 +126,7 @@ const IconField=()=>(<svg width="22" height="22" viewBox="0 0 24 24" fill="none"
 const IconCalendar=()=>(<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4" width="18" height="17" rx="2"/><path d="M3 9h18M8 2v4M16 2v4"/></svg>);
 const IconMore=()=>(<svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor" stroke="none"><circle cx="5" cy="12" r="1.6"/><circle cx="12" cy="12" r="1.6"/><circle cx="19" cy="12" r="1.6"/></svg>);
 const NAV=[{key:'command',label:'Today',Icon:IconHome},{key:'offices',label:'Offices',Icon:IconOffices},{key:'field',label:'Field',Icon:IconField},{key:'calendar',label:'Calendar',Icon:IconCalendar},{key:'__more',label:'More',Icon:IconMore}];
-const MORE=[{key:'vault',label:'Visit Vault'},{key:'lunches',label:'Lunches'},{key:'supplies',label:'Supplies'},{key:'reports',label:'Reports'}];
+const MORE=[{key:'ssc',label:'SSC'},{key:'vault',label:'Visit Vault'},{key:'lunches',label:'Lunches'},{key:'supplies',label:'Supplies'},{key:'reports',label:'Reports'}];
 
 export default function MuleHQ() {
   const [tab, setTab] = useState('command');
@@ -135,6 +135,7 @@ export default function MuleHQ() {
   const [tasks, setTasks] = useState([]);
   const [supplies, setSupplies] = useState([]);
   const [lunches, setLunches] = useState([]);
+  const [ssc, setSsc] = useState([]);
   const [route, setRoute] = useState([]);
   const [doctors, setDoctors] = useState([]);
   const [newDoctorName, setNewDoctorName] = useState('');
@@ -225,7 +226,7 @@ export default function MuleHQ() {
 
   async function loadAll() {
     try {
-      const [o, v, t, sp, lu, ro, dc, evd] = await Promise.all([
+      const [o, v, t, sp, lu, ro, dc, evd, sc] = await Promise.all([
         fetch('/api/offices').then(r => r.json()),
         fetch('/api/visits').then(r => r.json()),
         fetch('/api/tasks').then(r => r.json()),
@@ -234,6 +235,7 @@ export default function MuleHQ() {
         fetch('/api/routes').then(r => r.json()),
         fetch('/api/doctors').then(r => r.json()),
         fetch('/api/events').then(r => r.json()),
+        fetch('/api/ssc').then(r => r.json()),
       ]);
       const offs = Array.isArray(o) ? o : [];
       const vis = Array.isArray(v) ? v : [];
@@ -244,6 +246,7 @@ export default function MuleHQ() {
       const dcs = Array.isArray(dc) ? dc : [];
       setOffices(offs); setVisits(vis); setTasks(tks);
       setSupplies(sups); setLunches(lun); setDoctors(Array.isArray(dcs)?dcs:[]); setCalEvents(Array.isArray(evd)?evd:[]);
+      setSsc(Array.isArray(sc) ? sc : []);
       if (rt.length > 0) setRoute(rt);
       generateBriefing(offs, tks);
     } catch (e) { console.error(e); }
@@ -354,6 +357,7 @@ export default function MuleHQ() {
     setShowAddLunch(false); setNewLunch({office:'',doctor:'',contact:'',status:'To Schedule',restaurant:'',date:'',notes:'',staffCount:''}); await loadAll();
   }
   async function updateLunch(id,updates) { await fetch('/api/lunches',{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({id,...updates})}); await loadAll(); }
+  async function updateSsc(id,updates) { await fetch('/api/ssc',{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({id,...updates})}); await loadAll(); }
   async function saveLunchEdit() { if(!editLunch) return; await fetch('/api/lunches',{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify(editLunch)}); setEditLunch(null); await loadAll(); }
   async function deleteLunch(id) { if(!confirm('Remove this lunch?')) return; await fetch('/api/lunches',{method:'DELETE',headers:{'Content-Type':'application/json'},body:JSON.stringify({id})}); setEditLunch(null); await loadAll(); }
 
@@ -1102,6 +1106,58 @@ You guide Nikki through her day: suggest routes, capture visit notes, generate p
         )}
 
         {/* ══ SUPPLIES ══════════════════════════════════════ */}
+{tab==='ssc'&&(()=>{
+  const today=new Date().toISOString().slice(0,10);
+  const isRsvp=(m)=>['Confirmed','Yes','RSVP'].includes(m.status);
+  const paidN=ssc.filter(m=>m.duesPaid).length;
+  const callN=ssc.filter(m=>m.confirmCall).length;
+  const rsvpN=ssc.filter(isRsvp).length;
+  const cols=[
+    {k:'std',label:'STD',done:(m)=>!!m.saveDatesSent,tap:(m)=>updateSsc(m.id,{saveDatesSent:m.saveDatesSent?null:today})},
+    {k:'call',label:'Call',done:(m)=>!!m.confirmCall,tap:(m)=>updateSsc(m.id,{confirmCall:m.confirmCall?null:today})},
+    {k:'rsvp',label:'RSVP',done:(m)=>isRsvp(m),tap:(m)=>updateSsc(m.id,{status:isRsvp(m)?'Emailed':'Confirmed'})},
+    {k:'due',label:'Due$',done:(m)=>!!m.duesReminderSent,tap:(m)=>updateSsc(m.id,{duesReminderSent:m.duesReminderSent?null:today})},
+    {k:'paid',label:'Paid',done:(m)=>!!m.duesPaid,tap:(m)=>updateSsc(m.id,{duesPaid:!m.duesPaid})}
+  ];
+  const cw=40;
+  return(
+    <div>
+      <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:8}}>
+        <div style={sectionTitle}>Seattle Study Club</div>
+        <div style={{fontSize:11,fontWeight:600,color:C.choc3}}>{ssc.length} doctors</div>
+      </div>
+      <div style={{display:'flex',gap:16,marginBottom:14,flexWrap:'wrap'}}>
+        <div style={{fontSize:12,fontWeight:600,color:C.choc3}}>Calls done: <span style={{color:C.goldDark}}>{callN}/{ssc.length}</span></div>
+        <div style={{fontSize:12,fontWeight:600,color:C.choc3}}>RSVPs: <span style={{color:C.goldDark}}>{rsvpN}/{ssc.length}</span></div>
+        <div style={{fontSize:12,fontWeight:600,color:C.choc3}}>Dues paid: <span style={{color:C.sage}}>{paidN}/{ssc.length}</span></div>
+      </div>
+      <div style={{...glass({borderRadius:16}),overflow:'hidden'}}>
+        <div style={{display:'flex',alignItems:'center',padding:'8px 10px',borderBottom:'1px solid rgba(255,255,255,0.35)',background:'rgba(255,245,230,0.25)'}}>
+          <div style={{flex:1,minWidth:0,fontSize:10,fontWeight:700,color:C.choc3,letterSpacing:0.5}}>DOCTOR</div>
+          {cols.map(c=>(<div key={c.k} style={{width:cw,textAlign:'center',fontSize:9,fontWeight:700,color:C.choc3}}>{c.label}</div>))}
+        </div>
+        {ssc.map((m,i)=>(
+          <div key={m.id} style={{display:'flex',alignItems:'center',padding:'10px',borderBottom:i<ssc.length-1?'1px solid rgba(255,255,255,0.3)':'none',background:i%2===0?'rgba(255,255,255,0.08)':'rgba(255,245,230,0.12)'}}>
+            <div style={{flex:1,minWidth:0,paddingRight:6}}>
+              <div style={{fontWeight:700,fontSize:12,color:C.choc,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{m.doctor||m.office||'Unnamed'}</div>
+              <div style={{fontSize:10,fontWeight:500,color:C.choc3,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{m.office}{m.location?' - '+m.location:''}</div>
+            </div>
+            {cols.map(c=>{const d=c.done(m);return(
+              <div key={c.k} style={{width:cw,display:'flex',justifyContent:'center'}}>
+                <div onClick={()=>c.tap(m)} style={{width:22,height:22,borderRadius:6,cursor:'pointer',background:d?C.sage:'transparent',border:d?('1px solid '+C.sage):'1px solid rgba(122,96,80,0.4)',display:'flex',alignItems:'center',justifyContent:'center'}}>
+                  {d&&<div style={{width:9,height:9,borderRadius:2,background:'#fff'}}></div>}
+                </div>
+              </div>
+            );})}
+          </div>
+        ))}
+        {ssc.length===0&&<div style={{padding:20,textAlign:'center',fontSize:12,color:C.choc3}}>No SSC doctors loaded yet.</div>}
+      </div>
+      <div style={{fontSize:10,fontWeight:500,color:C.choc3,marginTop:10,lineHeight:1.6}}>Tap a box to mark it done. STD = Save-the-Date sent. Call = confirmation call. RSVP = confirmed attending. Due$ = dues reminder sent. Paid = dues paid.</div>
+    </div>
+  );
+})()}
+
         {tab==='supplies'&&(
           <div>
             <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:20}}>
