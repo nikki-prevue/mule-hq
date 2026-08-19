@@ -24,6 +24,11 @@ function mapOut(m){
     cell:m.cell||'', duesReminderSent:m.dues_reminder_sent||null,
     duesPaid:m.dues_paid||false, rsvpNotes:m.rsvp_notes||'',
     status:m.status||'', notes:m.notes||'',
+    personalEmail:m.personal_email||'', officeEmail:m.office_email||'', officePhone:m.office_phone||'',
+    paymentMethod:m.payment_method||'', paymentPlan:m.payment_plan||false,
+    declinedReason:m.declined_reason||'', returningMember:m.returning_member||false,
+    officeId:m.office_id||null, frontDeskContact:m.front_desk_contact||'',
+    callAttempts:m.call_attempts||0, rsvps:m.rsvps||{}, patelNote:m.at_a_glance||'',
   };
 }
 function mapIn(d){
@@ -42,6 +47,18 @@ function mapIn(d){
   if(d.rsvpNotes!==undefined)m.rsvp_notes=d.rsvpNotes;
   if(d.status!==undefined)m.status=d.status;
   if(d.notes!==undefined)m.notes=d.notes;
+  if(d.personalEmail!==undefined)m.personal_email=d.personalEmail;
+  if(d.officeEmail!==undefined)m.office_email=d.officeEmail;
+  if(d.officePhone!==undefined)m.office_phone=d.officePhone;
+  if(d.paymentMethod!==undefined)m.payment_method=d.paymentMethod;
+  if(d.paymentPlan!==undefined)m.payment_plan=d.paymentPlan;
+  if(d.declinedReason!==undefined)m.declined_reason=d.declinedReason;
+  if(d.returningMember!==undefined)m.returning_member=d.returningMember;
+  if(d.officeId!==undefined)m.office_id=d.officeId;
+  if(d.frontDeskContact!==undefined)m.front_desk_contact=d.frontDeskContact;
+  if(d.callAttempts!==undefined)m.call_attempts=d.callAttempts;
+  if(d.rsvps!==undefined)m.rsvps=d.rsvps;
+  if(d.patelNote!==undefined)m.at_a_glance=d.patelNote;
   return m;
 }
 

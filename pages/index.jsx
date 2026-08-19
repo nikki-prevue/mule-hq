@@ -140,6 +140,11 @@ export default function MuleHQ() {
   const [sscNote, setSscNote] = useState('');
   const [sscShowCal, setSscShowCal] = useState(false);
   const [sscShowScript, setSscShowScript] = useState(false);
+  const [sscEdit, setSscEdit] = useState(null);
+  const [sscForm, setSscForm] = useState({});
+  const [sscFilter, setSscFilter] = useState('all');
+  const [sscTaskText, setSscTaskText] = useState('');
+  const [sscFollowDate, setSscFollowDate] = useState('');
   const [route, setRoute] = useState([]);
   const [doctors, setDoctors] = useState([]);
   const [newDoctorName, setNewDoctorName] = useState('');
@@ -362,6 +367,10 @@ export default function MuleHQ() {
   }
   async function updateLunch(id,updates) { await fetch('/api/lunches',{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({id,...updates})}); await loadAll(); }
   async function updateSsc(id,updates) { await fetch('/api/ssc',{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({id,...updates})}); await loadAll(); }
+  async function setSscStatus(m,st){ await updateSsc(m.id,{status:st}); }
+  async function saveSscContact(m){ await updateSsc(m.id,{cell:sscForm.cell||'',personalEmail:sscForm.personalEmail||'',officeEmail:sscForm.officeEmail||'',officePhone:sscForm.officePhone||'',frontDeskContact:sscForm.frontDeskContact||''}); setSscEdit(null); }
+  async function toggleSscRsvp(m,key){ const r={...(m.rsvps||{})}; r[key]=!r[key]; await updateSsc(m.id,{rsvps:r}); }
+  async function addSscItem(m){ const txt=(sscTaskText||'').trim(); if(!txt&&!sscFollowDate) return; const who=(m.doctor||m.office||'SSC doctor'); if(txt){ await fetch('/api/tasks',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({text:'SSC - '+who+': '+txt,type:'SSC',priority:'urgent',dueDate:sscFollowDate||null})}); } if(sscFollowDate){ await fetch('/api/events',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({date:sscFollowDate,title:'SSC: '+who+(txt?(' - '+txt):' follow-up'),type:'meeting',notes:'From SSC page'})}); } setSscTaskText(''); setSscFollowDate(''); await loadAll(); }
   async function addSscNote(m){ const txt=(sscNote||'').trim(); if(!txt)return; const stamp='['+new Date().toLocaleDateString('en-US',{month:'short',day:'numeric'})+'] '+txt; await updateSsc(m.id,{notes:m.notes?stamp+'\n'+m.notes:stamp}); setSscNote(''); }
   async function saveLunchEdit() { if(!editLunch) return; await fetch('/api/lunches',{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify(editLunch)}); setEditLunch(null); await loadAll(); }
   async function deleteLunch(id) { if(!confirm('Remove this lunch?')) return; await fetch('/api/lunches',{method:'DELETE',headers:{'Content-Type':'application/json'},body:JSON.stringify({id})}); setEditLunch(null); await loadAll(); }
@@ -1112,124 +1121,137 @@ You guide Nikki through her day: suggest routes, capture visit notes, generate p
 
         {/* ══ SUPPLIES ══════════════════════════════════════ */}
 {tab==='ssc'&&(()=>{
-  const today=new Date().toISOString().slice(0,10);
-  const stamp=new Date().toLocaleDateString('en-US',{month:'short',day:'numeric'});
-  const isRsvp=(m)=>['Confirmed','Yes','RSVP'].includes(m.status);
-  const paidN=ssc.filter(m=>m.duesPaid).length;
-  const rsvpN=ssc.filter(isRsvp).length;
-  const callN=ssc.filter(m=>m.confirmCall).length;
+  const today=new Date().toLocaleDateString('en-CA',{timeZone:'America/Chicago'});
+  const stamp=new Date().toLocaleDateString('en-US',{month:'short',day:'numeric',timeZone:'America/Chicago'});
+  const SEM=[{k:'sep17',d:'Sep 17',c:'Hyg'},{k:'oct8',d:'Oct 8',c:'SSC'},{k:'nov11',d:'Nov 11',c:'SSC'},{k:'feb18',d:'Feb 18',c:'SSC'},{k:'mar25',d:'Mar 25',c:'SSC'},{k:'apr20',d:'Apr 20',c:'Hyg'},{k:'may27',d:'May 27',c:'Hyg'}];
+  const isPaid=(m)=>!!m.duesPaid, isConf=(m)=>m.status==='Confirmed', isDecl=(m)=>String(m.status||'').toLowerCase().includes('declin'), isNoAns=(m)=>m.status==='No Answer';
+  const paidN=ssc.filter(isPaid).length, confN=ssc.filter(isConf).length, declN=ssc.filter(isDecl).length, oweN=ssc.filter(m=>!isPaid(m)&&!isDecl(m)).length;
+  const badge=(m)=>{ if(isPaid(m))return{t:'Paid',bg:'rgba(122,150,120,0.22)',c:C.sage}; if(isDecl(m))return{t:'Declined',bg:'rgba(122,96,80,0.12)',c:C.choc3}; if(isNoAns(m))return{t:'No answer',bg:'rgba(196,122,138,0.20)',c:C.rose}; if(isConf(m))return{t:'Confirmed',bg:'rgba(201,169,110,0.22)',c:C.goldDark}; return{t:m.status||'To email',bg:'rgba(122,96,80,0.10)',c:C.choc3}; };
+  const filt=(m)=>{ if(sscFilter==='all')return true; if(sscFilter==='owe')return !isPaid(m)&&!isDecl(m); if(sscFilter==='noans')return isNoAns(m); if(sscFilter==='declined')return isDecl(m); if(sscFilter==='confirmed')return isConf(m)||isPaid(m); return true; };
+  const rows=ssc.filter(filt);
+  const summary=(m)=>{ const p=[]; p.push(m.saveDatesSent?('emailed '+fmtD(m.saveDatesSent)):'not emailed'); if(m.confirmCall)p.push('called '+fmtD(m.confirmCall)); if(isConf(m))p.push('confirmed'); if(isDecl(m))p.push('DECLINED'); if(isNoAns(m))p.push('no answer'); p.push(isPaid(m)?('dues PAID'+(m.paymentMethod?' ('+m.paymentMethod+')':'')):'dues unpaid'); const rc=Object.values(m.rsvps||{}).filter(Boolean).length; if(rc)p.push(rc+' seminar RSVPs'); return p.join('  ·  '); };
+  const nextStep=(m)=>{ if(isDecl(m))return 'Declined - re-invite next season'; if(!m.saveDatesSent)return 'Send Save-the-Date invite'; if(isNoAns(m))return 'Re-attempt contact (no answer)'; if(!m.confirmCall&&!isConf(m))return 'Call to confirm receipt'; if(!isPaid(m))return m.paymentPlan?'Collect dues (on payment plan)':'Collect dues'; return 'Member set - keep RSVPs current'; };
+  const offOf=(m)=>offices.find(o=>o.name&&m.office&&o.name.toLowerCase()===m.office.toLowerCase());
+  const STATUSES=['Emailed','Confirmed','Declined','No Answer','Paid'];
   const EV=[
-    {d:'Sep 17, 2026',club:'HYGIENE',sp:'Brittany Simon',t:'Stretching the Shrinking Hour / Productive Hygienist / Treatment Enrollment Mastery',v:'Benco Dental Training Room, 501 Lakeside Pkwy Ste 100, Flower Mound',time:'Check-in 5:00, Seminar 6:00'},
-    {d:'Oct 8, 2026',club:'SSC',sp:'Judy McIntyre',t:'Clarity in Endodontics for Multidisciplinary Treatment Planning',v:'Quartino Grandscape, 5754 Grandscape Blvd #200, The Colony',time:'Check-in 5:00, Seminar 6:00'},
-    {d:'Nov 11, 2026',club:'SSC',sp:'Todd Shoenbaum',t:'Prosthetic Implant Complications: Causes, Prevention and Management',v:'Quartino Grandscape, The Colony',time:'Check-in 5:00, Seminar 6:00'},
-    {d:'Feb 18, 2027',club:'SSC',sp:'Lora Hooper',t:'From Spit to Strategy: Saliva Testing That Transforms Perio Protocols',v:'Quartino Grandscape, The Colony',time:'Check-in 5:00, Seminar 6:00'},
-    {d:'Mar 25, 2027',club:'SSC',sp:'Karen Baker',t:'Drug Reactions and Interactions Important in Dental Practice',v:'Quartino Grandscape, The Colony',time:'Check-in 5:00, Seminar 6:00'},
-    {d:'Apr 9-10, 2027',club:'SSC',sp:'Texas Regional Symposium',t:'See supplemental packet',v:'',time:''},
-    {d:'Apr 20, 2027',club:'HYGIENE',sp:'Cliff Campbell',t:'Wound Healing - Alternatives for the Dental Practice',v:'Lancaster Theatre, 300 S Main St, Grapevine',time:'Check-in 5:00, Seminar 6:00'},
-    {d:'May 27, 2027',club:'HYGIENE',sp:'Irene Iancu',t:'The RDH Checklist for Implant Maintenance and Identifying Failure',v:'Lancaster Theatre, Grapevine',time:'Check-in 5:00, Seminar 6:00'}
+    {d:'Sep 17, 2026',club:'HYGIENE',sp:'Brittany Simon',v:'Benco Dental, 501 Lakeside Pkwy Ste 100, Flower Mound'},
+    {d:'Oct 8, 2026',club:'SSC',sp:'Judy McIntyre',v:'Quartino Grandscape, The Colony'},
+    {d:'Nov 11, 2026',club:'SSC',sp:'Todd Shoenbaum',v:'Quartino Grandscape, The Colony'},
+    {d:'Feb 18, 2027',club:'SSC',sp:'Lora Hooper',v:'Quartino Grandscape, The Colony'},
+    {d:'Mar 25, 2027',club:'SSC',sp:'Karen Baker',v:'Quartino Grandscape, The Colony'},
+    {d:'Apr 9-10, 2027',club:'SSC',sp:'Texas Regional Symposium',v:'See supplemental packet'},
+    {d:'Apr 20, 2027',club:'HYGIENE',sp:'Cliff Campbell',v:'Lancaster Theatre, Grapevine'},
+    {d:'May 27, 2027',club:'HYGIENE',sp:'Irene Iancu',v:'Lancaster Theatre, Grapevine'}
   ];
   const SCRIPT=[
-    {h:'OPEN',b:'Hi, this is Nikki with ROOT Perio - do you have a quick minute? I am calling about the 2026-2027 Seattle Study Club season and want to make sure Dr. [Name] is set for their spot.'},
-    {h:'THE SEASON',b:'First Seattle Study Club dinner is Oct 8 at Quartino Grandscape in The Colony - check-in 5, seminar 6. Four dinners this season plus the Texas Regional Symposium in April, and the Hygiene Club meetings are included.'},
-    {h:'VALUE',b:'Membership is $1,295 and it covers the doctor plus hygienist(s) for all the hygiene meetings too - strong CE for the whole team.'},
-    {h:'DUES',b:'To lock in the spot, dues are due before Aug 31. Easiest is a secure Square link I can text or email - about a minute - or a check works just as well.'},
-    {h:'CLOSE',b:'Can I count on Dr. [Name] for this season? I will send the link right over. Thank you so much!'},
-    {h:'VOICEMAIL',b:'Hi, this is Nikki with ROOT Perio about the 2026-2027 Seattle Study Club season. I would love to confirm Dr. [Name]s spot - dues are due before Aug 31 and I can text a quick Square link. Call or text me back at 817-893-7925. Thanks so much!'}
+    {h:'DUES REMINDER EMAIL - send Aug 26 (Amanda template)',b:'Subject: A Friendly Reminder: 2026-2027 SSC Membership Dues\n\nDear Dr.____,\nWe are excited for another season of the Seattle Study Club of Dallas and ROOT Dental Hygiene Study Club. Membership dues are due by Monday, August 31, 2026. Payment can be made online via https://square.link/u/D2UYUbua.\nWarmly, [Name]'},
+    {h:'PAYMENT FOLLOW-UP CALL - Sept 3/4 (unpaid)',b:'Call offices that have not paid. Ask if the doctor would like you to text or email the payment link. Ask for the cell or personal email of the doctor.'},
+    {h:'TEXT THE LINK VIA SQUARE',b:'You are set up on Square to text payment links. Log in at App.squareup.com (passcode 2014) and send: https://square.link/u/D2UYUbua'}
   ];
-  const cols=[
-    {k:'inv',label:'Invite',full:'Email Invite Sent',done:(m)=>!!m.saveDatesSent,date:(m)=>m.saveDatesSent,tap:(m)=>updateSsc(m.id,{saveDatesSent:m.saveDatesSent?null:today})},
-    {k:'call',label:'Call',full:'Confirmation Call',done:(m)=>!!m.confirmCall,date:(m)=>m.confirmCall,tap:(m)=>updateSsc(m.id,{confirmCall:m.confirmCall?null:today})},
-    {k:'rsvp',label:'RSVP',full:'Confirmed Attending',done:(m)=>isRsvp(m),date:(m)=>'yes',tap:(m)=>updateSsc(m.id,{status:isRsvp(m)?'Emailed':'Confirmed'})},
-    {k:'due',label:'Dues',full:'Dues Reminder Sent',done:(m)=>!!m.duesReminderSent,date:(m)=>m.duesReminderSent,tap:(m)=>updateSsc(m.id,{duesReminderSent:m.duesReminderSent?null:today})},
-    {k:'paid',label:'Paid',full:'Dues Paid',done:(m)=>!!m.duesPaid,date:(m)=>'yes',tap:(m)=>updateSsc(m.id,{duesPaid:!m.duesPaid})}
-  ];
-  const cw=42;
+  const FILTERS=[['all','All'],['owe','Owe dues'],['noans','No answer'],['declined','Declined'],['confirmed','Confirmed']];
   return(
     <div>
-      <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:8}}>
+      <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:10}}>
         <div style={sectionTitle}>Seattle Study Club</div>
-        <div style={{fontSize:11,fontWeight:600,color:C.choc3}}>{ssc.length} doctors</div>
+        <div style={{fontSize:11,fontWeight:600,color:C.choc3}}>Dallas · {ssc.length} doctors</div>
       </div>
-      <div style={{display:'flex',gap:16,marginBottom:12,flexWrap:'wrap'}}>
-        <div style={{fontSize:12,fontWeight:600,color:C.choc3}}>Calls: <span style={{color:C.goldDark}}>{callN}/{ssc.length}</span></div>
-        <div style={{fontSize:12,fontWeight:600,color:C.choc3}}>Confirmed: <span style={{color:C.goldDark}}>{rsvpN}/{ssc.length}</span></div>
-        <div style={{fontSize:12,fontWeight:600,color:C.choc3}}>Dues paid: <span style={{color:C.sage}}>{paidN}/{ssc.length}</span></div>
+      <div style={{display:'grid',gridTemplateColumns:'repeat(4,1fr)',gap:8,marginBottom:12}}>
+        <div style={{...glass({borderRadius:12}),padding:'8px 4px',textAlign:'center'}}><div style={{fontSize:18,fontWeight:800,color:C.sage}}>{paidN}</div><div style={{fontSize:9,fontWeight:600,color:C.choc3}}>PAID</div></div>
+        <div style={{...glass({borderRadius:12}),padding:'8px 4px',textAlign:'center'}}><div style={{fontSize:18,fontWeight:800,color:C.goldDark}}>{confN}</div><div style={{fontSize:9,fontWeight:600,color:C.choc3}}>CONFIRMED</div></div>
+        <div style={{...glass({borderRadius:12}),padding:'8px 4px',textAlign:'center'}}><div style={{fontSize:18,fontWeight:800,color:C.rose}}>{declN}</div><div style={{fontSize:9,fontWeight:600,color:C.choc3}}>DECLINED</div></div>
+        <div style={{...glass({borderRadius:12}),padding:'8px 4px',textAlign:'center'}}><div style={{fontSize:18,fontWeight:800,color:C.hot}}>{oweN}</div><div style={{fontSize:9,fontWeight:600,color:C.choc3}}>OWE DUES</div></div>
+      </div>
+      <div style={{display:'flex',gap:6,marginBottom:12,flexWrap:'wrap'}}>
+        {FILTERS.map(([k,l])=>(<div key={k} onClick={()=>setSscFilter(k)} style={{fontSize:11,fontWeight:600,padding:'6px 12px',borderRadius:999,cursor:'pointer',border:'1px solid '+(sscFilter===k?C.gold:'rgba(122,96,80,0.25)'),background:sscFilter===k?'rgba(201,169,110,0.18)':'transparent',color:sscFilter===k?C.goldDark:C.choc3}}>{l}</div>))}
       </div>
       <div style={{display:'flex',gap:8,marginBottom:12,flexWrap:'wrap'}}>
         <button style={{...btn.secondary,...btn.sm}} onClick={()=>setSscShowCal(v=>!v)}>{sscShowCal?'Hide Dates':'Season Dates & Details'}</button>
-        <button style={{...btn.secondary,...btn.sm}} onClick={()=>setSscShowScript(v=>!v)}>{sscShowScript?'Hide Script':'Call Script'}</button>
+        <button style={{...btn.secondary,...btn.sm}} onClick={()=>setSscShowScript(v=>!v)}>{sscShowScript?'Hide Script':'Follow-Up Script (Amanda)'}</button>
       </div>
       {sscShowCal&&(
         <div style={{...glass({borderRadius:14}),padding:'12px 14px',marginBottom:14}}>
           <div style={{fontSize:11,fontWeight:700,color:C.choc,marginBottom:10,lineHeight:1.6}}>Dues due before Mon Aug 31. Tuition $1,295 (covers doctor + hygienist for all Hygiene meetings). Pay: square.link/u/D2UYUbua, or check to Amit M Patel DDS MSD, 651 Cross Timbers Rd #102, Flower Mound. Director: Dr. Amit Patel. Coordinators: Alyse Palos, Amanda Cline.</div>
-          {EV.map((e,i)=>(
-            <div key={i} style={{padding:'8px 0',borderTop:i>0?'1px solid rgba(122,96,80,0.15)':'none'}}>
-              <div style={{display:'flex',gap:8,alignItems:'baseline'}}>
-                <div style={{fontSize:12,fontWeight:700,color:C.goldDark,minWidth:96}}>{e.d}</div>
-                <div style={{fontSize:9,fontWeight:700,color:C.choc3,letterSpacing:0.3}}>{e.club}</div>
-              </div>
-              <div style={{fontSize:12,fontWeight:600,color:C.choc}}>{e.sp}{e.t?' - '+e.t:''}</div>
-              {e.v&&<div style={{fontSize:10,color:C.choc3}}>{e.v}{e.time?' | '+e.time:''}</div>}
-            </div>
-          ))}
+          {EV.map((e,i)=>(<div key={i} style={{padding:'8px 0',borderTop:i>0?'1px solid rgba(122,96,80,0.15)':'none'}}><div style={{display:'flex',gap:8,alignItems:'baseline'}}><div style={{fontSize:12,fontWeight:700,color:C.goldDark,minWidth:96}}>{e.d}</div><div style={{fontSize:9,fontWeight:700,color:C.choc3}}>{e.club}</div></div><div style={{fontSize:12,fontWeight:600,color:C.choc}}>{e.sp}</div>{e.v&&<div style={{fontSize:10,color:C.choc3}}>{e.v}</div>}</div>))}
         </div>
       )}
       {sscShowScript&&(
         <div style={{...glass({borderRadius:14}),padding:'12px 14px',marginBottom:14}}>
-          <div style={{fontSize:10,fontWeight:500,color:C.choc3,marginBottom:8,fontStyle:'italic'}}>Confirmation-call verbiage. Swap [Name] for the doctor. Tell me if you want the wording changed.</div>
-          {SCRIPT.map((s,i)=>(
-            <div key={i} style={{marginBottom:8}}>
-              <div style={{fontSize:10,fontWeight:700,color:C.goldDark,letterSpacing:0.4}}>{s.h}</div>
-              <div style={{fontSize:12,color:C.choc,lineHeight:1.6}}>{s.b}</div>
-            </div>
-          ))}
+          <div style={{fontSize:10,fontWeight:500,color:C.choc3,marginBottom:8,fontStyle:'italic'}}>Amanda's official follow-up template and timeline, word for word.</div>
+          {SCRIPT.map((s2,i)=>(<div key={i} style={{marginBottom:8}}><div style={{fontSize:10,fontWeight:700,color:C.goldDark,letterSpacing:0.4}}>{s2.h}</div><div style={{fontSize:12,color:C.choc,lineHeight:1.6,whiteSpace:'pre-wrap'}}>{s2.b}</div></div>))}
         </div>
       )}
       <div style={{...glass({borderRadius:16}),overflow:'hidden'}}>
-        <div style={{display:'flex',alignItems:'center',padding:'8px 10px',borderBottom:'1px solid rgba(255,255,255,0.35)',background:'rgba(255,245,230,0.25)'}}>
-          <div style={{flex:1,minWidth:0,fontSize:10,fontWeight:700,color:C.choc3,letterSpacing:0.5}}>DOCTOR</div>
-          {cols.map(c=>(<div key={c.k} style={{width:cw,textAlign:'center',fontSize:9,fontWeight:700,color:C.choc3}}>{c.label}</div>))}
-        </div>
-        {ssc.map((m,i)=>{const open=sscOpen===m.id;return(
-          <div key={m.id} style={{borderBottom:i<ssc.length-1?'1px solid rgba(255,255,255,0.3)':'none',background:i%2===0?'rgba(255,255,255,0.08)':'rgba(255,245,230,0.12)'}}>
-            <div style={{display:'flex',alignItems:'center',padding:'10px'}}>
-              <div onClick={()=>{setSscOpen(open?null:m.id);setSscNote('');}} style={{flex:1,minWidth:0,paddingRight:6,cursor:'pointer'}}>
-                <div style={{fontWeight:700,fontSize:12,color:C.choc,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{open?'▾ ':'▸ '}{m.doctor||m.office||'Unnamed'}</div>
-                <div style={{fontSize:10,fontWeight:500,color:C.choc3,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{m.office}{m.location?' - '+m.location:''}</div>
+        {rows.map((m,i)=>{const open=sscOpen===m.id;const bd=badge(m);const o=offOf(m);return(
+          <div key={m.id} style={{borderBottom:i<rows.length-1?'1px solid rgba(255,255,255,0.3)':'none',background:i%2===0?'rgba(255,255,255,0.08)':'rgba(255,245,230,0.12)'}}>
+            <div onClick={()=>{setSscOpen(open?null:m.id);setSscNote('');setSscEdit(null);}} style={{display:'flex',alignItems:'center',padding:'12px 12px',cursor:'pointer',gap:8}}>
+              <div style={{flex:1,minWidth:0}}>
+                <div style={{fontWeight:700,fontSize:13,color:C.choc,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{open?'▾ ':'▸ '}{m.doctor||m.office||'Unnamed'}</div>
+                <div style={{fontSize:11,fontWeight:500,color:C.choc3,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{m.office}{m.location?' · '+m.location:''}</div>
               </div>
-              {cols.map(c=>{const d=c.done(m);return(
-                <div key={c.k} style={{width:cw,display:'flex',justifyContent:'center'}}>
-                  <div onClick={()=>c.tap(m)} style={{width:22,height:22,borderRadius:6,cursor:'pointer',background:d?C.sage:'transparent',border:d?('1px solid '+C.sage):'1px solid rgba(122,96,80,0.4)',display:'flex',alignItems:'center',justifyContent:'center'}}>
-                    {d&&<div style={{width:9,height:9,borderRadius:2,background:'#fff'}}></div>}
-                  </div>
-                </div>
-              );})}
+              <div style={{fontSize:11,fontWeight:700,padding:'4px 10px',borderRadius:999,background:bd.bg,color:bd.c,flexShrink:0}}>{bd.t}</div>
             </div>
             {open&&(
-              <div style={{padding:'2px 14px 16px',borderTop:'1px dashed rgba(122,96,80,0.25)'}}>
-                <div style={{display:'flex',flexWrap:'wrap',gap:12,margin:'10px 0'}}>
-                  {m.cell?<div style={{fontSize:11,color:C.choc3}}>Direct cell: <span style={{color:C.sage,fontWeight:700}}>{m.cell}</span></div>:<div style={{fontSize:11,color:'#b45',fontWeight:600,fontStyle:'italic'}}>Direct cell: not on file - add from Alyse's list</div>}
-                  {m.phone&&<div style={{fontSize:11,color:C.choc3}}>Office: <span style={{color:C.choc,fontWeight:600}}>{m.phone}</span></div>}
-                  {m.email&&<div style={{fontSize:11,color:C.choc3}}>Email: <span style={{color:C.choc,fontWeight:600}}>{m.email}</span></div>}
+              <div style={{padding:'0 14px 16px'}}>
+                <div style={{background:'rgba(201,169,110,0.14)',borderRadius:10,padding:'10px 12px',marginBottom:10}}>
+                  <div style={{fontSize:9,fontWeight:700,color:C.goldDark,letterSpacing:0.5,marginBottom:3}}>AT A GLANCE</div>
+                  <div style={{fontSize:12,fontWeight:600,color:C.choc,lineHeight:1.5}}>{summary(m)}</div>
+                  <div style={{fontSize:11,fontWeight:700,color:C.hot,marginTop:6}}>NEXT: {nextStep(m)}</div>
                 </div>
-                <div style={{display:'flex',flexWrap:'wrap',gap:8,marginBottom:12}}>
-                  {cols.map(c=>{const dt=c.date(m);const dn=c.done(m);return(
-                    <div key={c.k} style={{fontSize:10,fontWeight:600,padding:'4px 8px',borderRadius:8,background:dn?'rgba(122,150,120,0.18)':'rgba(122,96,80,0.08)',color:dn?C.sage:C.choc3}}>{c.full}{dn?(dt&&dt!=='yes'?': '+fmtD(dt):': done'):''}</div>
-                  );})}
+                <div style={{fontSize:9,fontWeight:700,color:C.choc3,letterSpacing:0.5,marginBottom:6}}>STATUS</div>
+                <div style={{display:'flex',gap:6,flexWrap:'wrap',marginBottom:12}}>
+                  {STATUSES.map(st=>{const on=(st==='Paid'&&isPaid(m))||(st!=='Paid'&&m.status===st);return(<div key={st} onClick={()=>st==='Paid'?updateSsc(m.id,{duesPaid:!isPaid(m)}):setSscStatus(m,st)} style={{fontSize:11,fontWeight:600,padding:'6px 11px',borderRadius:8,cursor:'pointer',border:'1px solid '+(on?C.gold:'rgba(122,96,80,0.25)'),background:on?'rgba(201,169,110,0.2)':'transparent',color:on?C.goldDark:C.choc3}}>{st}</div>);})}
                 </div>
-                <div style={{fontSize:10,fontWeight:700,color:C.choc3,marginBottom:6,letterSpacing:0.4}}>ACTIVITY LOG</div>
-                {m.notes?<div style={{fontSize:11,color:C.choc,lineHeight:1.7,whiteSpace:'pre-wrap',marginBottom:10,background:'rgba(255,255,255,0.35)',borderRadius:8,padding:'8px 10px'}}>{m.notes}</div>:<div style={{fontSize:11,color:C.choc3,marginBottom:10}}>No notes yet.</div>}
-                <div style={{display:'flex',gap:6}}>
-                  <input value={sscNote} onChange={e=>setSscNote(e.target.value)} placeholder={'Add note (auto-stamped '+stamp+')'} style={{flex:1,padding:'8px 10px',borderRadius:8,border:'1px solid rgba(122,96,80,0.3)',fontSize:12,background:'rgba(255,255,255,0.6)',color:C.choc}}/>
+                <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:6}}>
+                  <div style={{fontSize:9,fontWeight:700,color:C.choc3,letterSpacing:0.5}}>CONTACT</div>
+                  {sscEdit!==m.id&&<div onClick={()=>{setSscEdit(m.id);setSscForm({cell:m.cell||'',personalEmail:m.personalEmail||'',officeEmail:m.officeEmail||m.email||'',officePhone:m.officePhone||m.phone||'',frontDeskContact:m.frontDeskContact||''});}} style={{fontSize:11,fontWeight:600,color:C.goldDark,cursor:'pointer'}}>Edit</div>}
+                </div>
+                {sscEdit===m.id?(
+                  <div style={{marginBottom:12}}>
+                    {[['cell','Direct cell'],['personalEmail','Personal email'],['officeEmail','Office email'],['officePhone','Office phone'],['frontDeskContact','Front desk / OM']].map(([k,l])=>(
+                      <input key={k} value={sscForm[k]||''} onChange={e=>setSscForm({...sscForm,[k]:e.target.value})} placeholder={l} style={{width:'100%',boxSizing:'border-box',padding:'8px 10px',marginBottom:6,borderRadius:8,border:'1px solid rgba(122,96,80,0.3)',fontSize:12,background:'rgba(255,255,255,0.7)',color:C.choc}}/>
+                    ))}
+                    <div style={{display:'flex',gap:6}}><button style={btn.primary} onClick={()=>saveSscContact(m)}>Save</button><button style={{...btn.secondary,...btn.sm}} onClick={()=>setSscEdit(null)}>Cancel</button></div>
+                  </div>
+                ):(
+                  <div style={{marginBottom:12,fontSize:12,lineHeight:1.9}}>
+                    {m.cell?<div>Cell: <a href={'tel:'+m.cell} style={{color:C.goldDark,fontWeight:700,textDecoration:'none'}}>{m.cell}</a> <a href={'sms:'+m.cell} style={{color:C.sage,fontWeight:600,textDecoration:'none',marginLeft:6}}>Text</a></div>:<div style={{color:'#b45',fontStyle:'italic'}}>Direct cell: not on file - tap Edit to add</div>}
+                    {(m.personalEmail||m.officeEmail||m.email)&&<div>Email: <a href={'mailto:'+(m.personalEmail||m.officeEmail||m.email)} style={{color:C.choc,fontWeight:600,textDecoration:'none'}}>{m.personalEmail||m.officeEmail||m.email}</a></div>}
+                    {(m.officePhone||m.phone)&&<div style={{color:C.choc3}}>Office: {m.officePhone||m.phone}</div>}
+                    {m.frontDeskContact&&<div style={{color:C.choc3}}>Front desk: {m.frontDeskContact}</div>}
+                  </div>
+                )}
+                {o&&(<div style={{fontSize:11,color:C.choc3,marginBottom:12,background:'rgba(255,255,255,0.3)',borderRadius:8,padding:'6px 10px'}}>Office: {o.topReferrer?<span style={{color:C.sage,fontWeight:700}}>Top referrer</span>:(o.tier||'')} {o.lastVisit?' · last visit '+fmtD(o.lastVisit):''}</div>)}
+                <div style={{fontSize:9,fontWeight:700,color:C.choc3,letterSpacing:0.5,marginBottom:6}}>SEASON RSVPs</div>
+                <div style={{display:'flex',gap:6,flexWrap:'wrap',marginBottom:12}}>
+                  {SEM.map(ev=>{const on=(m.rsvps||{})[ev.k];return(<div key={ev.k} onClick={()=>toggleSscRsvp(m,ev.k)} style={{fontSize:10,fontWeight:600,padding:'5px 9px',borderRadius:8,cursor:'pointer',border:'1px solid '+(on?C.sage:'rgba(122,96,80,0.25)'),background:on?'rgba(122,150,120,0.2)':'transparent',color:on?C.sage:C.choc3}}>{on?'✓ ':''}{ev.d}</div>);})}
+                </div>
+                <div style={{fontSize:9,fontWeight:700,color:C.goldDark,letterSpacing:0.5,marginBottom:4}}>DR. PATEL'S NOTE</div>
+                <div style={{fontSize:12,color:C.choc,lineHeight:1.6,background:'rgba(201,169,110,0.16)',borderRadius:8,padding:'8px 10px',marginBottom:12,borderLeft:'3px solid '+C.gold}}>{m.patelNote||'No note from Dr. Patel yet.'}</div>
+                <div style={{fontSize:9,fontWeight:700,color:C.choc3,letterSpacing:0.5,marginBottom:6}}>ACTIVITY LOG</div>
+                {m.notes?<div style={{fontSize:11,color:C.choc,lineHeight:1.7,whiteSpace:'pre-wrap',marginBottom:8,background:'rgba(255,255,255,0.35)',borderRadius:8,padding:'8px 10px'}}>{m.notes}</div>:<div style={{fontSize:11,color:C.choc3,marginBottom:8}}>No notes yet.</div>}
+                <div style={{display:'flex',gap:6,marginBottom:12}}>
+                  <input value={sscNote} onChange={e=>setSscNote(e.target.value)} placeholder={'Add note (stamped '+stamp+')'} style={{flex:1,padding:'8px 10px',borderRadius:8,border:'1px solid rgba(122,96,80,0.3)',fontSize:12,background:'rgba(255,255,255,0.6)',color:C.choc}}/>
                   <button style={btn.primary} onClick={()=>addSscNote(m)}>Log</button>
+                </div>
+                <div style={{fontSize:9,fontWeight:700,color:C.choc3,letterSpacing:0.5,marginBottom:6}}>ADD TASK / FOLLOW-UP (flows to Task Center + Calendar)</div>
+                <div style={{display:'flex',gap:6,marginBottom:6}}>
+                  <input value={sscTaskText} onChange={e=>setSscTaskText(e.target.value)} placeholder="Task or promised follow-up" style={{flex:1,padding:'8px 10px',borderRadius:8,border:'1px solid rgba(122,96,80,0.3)',fontSize:12,background:'rgba(255,255,255,0.6)',color:C.choc}}/>
+                </div>
+                <div style={{display:'flex',gap:6,marginBottom:12}}>
+                  <input type="date" value={sscFollowDate} onChange={e=>setSscFollowDate(e.target.value)} style={{flex:1,padding:'8px 10px',borderRadius:8,border:'1px solid rgba(122,96,80,0.3)',fontSize:12,background:'rgba(255,255,255,0.6)',color:C.choc}}/>
+                  <button style={btn.primary} onClick={()=>addSscItem(m)}>Add</button>
+                </div>
+                <div style={{display:'flex',gap:8,flexWrap:'wrap'}}>
+                  {o&&<button style={{...btn.secondary,...btn.sm}} onClick={()=>setSelectedOffice(o)}>Office profile</button>}
+                  <a href="https://square.link/u/D2UYUbua" target="_blank" rel="noreferrer" style={{...btn.secondary,...btn.sm,textDecoration:'none',display:'inline-block'}}>Square dues link</a>
                 </div>
               </div>
             )}
           </div>
         );})}
-        {ssc.length===0&&<div style={{padding:20,textAlign:'center',fontSize:12,color:C.choc3}}>No SSC doctors loaded yet.</div>}
+        {rows.length===0&&<div style={{padding:20,textAlign:'center',fontSize:12,color:C.choc3}}>No doctors match this filter.</div>}
       </div>
-      <div style={{fontSize:10,fontWeight:500,color:C.choc3,marginTop:10,lineHeight:1.6}}>Tap a box to mark a step done. Tap a doctor to open their card, see dates, and log a date-stamped note. Order: Invite (Email Invite Sent) - Call - RSVP - Dues (reminder) - Paid.</div>
+      <div style={{fontSize:10,fontWeight:500,color:C.choc3,marginTop:10,lineHeight:1.6}}>Tap a doctor for their full record. Set status, edit contact, mark RSVPs, log notes, and add tasks/follow-ups that flow to your Task Center and Calendar. Times run on Central.</div>
     </div>
   );
 })()}
