@@ -1126,9 +1126,9 @@ You guide Nikki through her day: suggest routes, capture visit notes, generate p
   const SEM=[{k:'sep17',d:'Sep 17',c:'Hyg'},{k:'oct8',d:'Oct 8',c:'SSC'},{k:'nov11',d:'Nov 11',c:'SSC'},{k:'feb18',d:'Feb 18',c:'SSC'},{k:'mar25',d:'Mar 25',c:'SSC'},{k:'apr20',d:'Apr 20',c:'Hyg'},{k:'may27',d:'May 27',c:'Hyg'}];
   const isPaid=(m)=>!!m.duesPaid, isConf=(m)=>m.status==='Confirmed', isDecl=(m)=>String(m.status||'').toLowerCase().includes('declin'), isNoAns=(m)=>m.status==='No Answer';
   const paidN=ssc.filter(isPaid).length, confN=ssc.filter(isConf).length, declN=ssc.filter(isDecl).length, oweN=ssc.filter(m=>!isPaid(m)&&!isDecl(m)).length; const planN=ssc.filter(m=>m.paymentPlan).length;
-  const badge=(m)=>{ if(isPaid(m))return{t:'Paid',bg:'rgba(122,150,120,0.22)',c:C.sage}; if(isDecl(m))return{t:'Declined',bg:'rgba(122,96,80,0.12)',c:C.choc3}; if(isNoAns(m))return{t:'No answer',bg:'rgba(196,122,138,0.20)',c:C.rose}; if(isConf(m))return{t:'Confirmed',bg:'rgba(201,169,110,0.22)',c:C.goldDark}; return{t:m.status||'To email',bg:'rgba(122,96,80,0.10)',c:C.choc3}; };
+  const badge=(m)=>{ if(isPaid(m))return{t:'Paid',bg:'rgba(122,150,120,0.22)',c:C.sage}; if(isDecl(m))return{t:'✕ Declined',bg:'rgba(180,70,70,0.16)',c:'#a24a46'}; if(isNoAns(m))return{t:'No answer',bg:'rgba(196,122,138,0.20)',c:C.rose}; if(isConf(m))return{t:'Confirmed',bg:'rgba(201,169,110,0.22)',c:C.goldDark}; return{t:m.status||'To email',bg:'rgba(122,96,80,0.10)',c:C.choc3}; };
   const filt=(m)=>{ if(sscFilter==='all')return true; if(sscFilter==='owe')return !isPaid(m)&&!isDecl(m); if(sscFilter==='noans')return isNoAns(m); if(sscFilter==='declined')return isDecl(m); if(sscFilter==='confirmed')return isConf(m)||isPaid(m); if(sscFilter==='plan')return !!m.paymentPlan; return true; };
-  const rows=ssc.filter(filt);
+  const rows=ssc.filter(filt).slice().sort((a,b)=>(isDecl(a)?1:0)-(isDecl(b)?1:0));
   const summary=(m)=>{ const p=[]; p.push(m.saveDatesSent?('emailed '+fmtD(m.saveDatesSent)):'not emailed'); if(m.confirmCall)p.push('called '+fmtD(m.confirmCall)); if(isConf(m))p.push('confirmed'); if(isDecl(m))p.push('DECLINED'); if(isNoAns(m))p.push('no answer'); p.push(isPaid(m)?('dues PAID'+(m.paymentMethod?' ('+m.paymentMethod+')':'')):'dues unpaid'); const rc=Object.values(m.rsvps||{}).filter(Boolean).length; if(rc)p.push(rc+' seminar RSVPs'); return p.join('  ·  '); };
   const nextStep=(m)=>{ if(isDecl(m))return 'Declined - re-invite next season'; if(!m.saveDatesSent)return 'Send Save-the-Date invite'; if(isNoAns(m))return 'Re-attempt contact (no answer)'; if(!m.confirmCall&&!isConf(m))return 'Call to confirm receipt'; if(!isPaid(m))return m.paymentPlan?'Collect dues (on payment plan)':'Collect dues'; return 'Member set - keep RSVPs current'; };
   const offOf=(m)=>offices.find(o=>o.name&&m.office&&o.name.toLowerCase()===m.office.toLowerCase());
@@ -1182,7 +1182,7 @@ You guide Nikki through her day: suggest routes, capture visit notes, generate p
       )}
       <div style={{...glass({borderRadius:16}),overflow:'hidden'}}>
         {rows.map((m,i)=>{const open=sscOpen===m.id;const bd=badge(m);const o=offOf(m);return(
-          <div key={m.id} style={{borderBottom:i<rows.length-1?'1px solid rgba(255,255,255,0.3)':'none',background:i%2===0?'rgba(255,255,255,0.08)':'rgba(255,245,230,0.12)'}}>
+          <div key={m.id} style={{borderBottom:i<rows.length-1?'1px solid rgba(255,255,255,0.3)':'none',background:i%2===0?'rgba(255,255,255,0.08)':'rgba(255,245,230,0.12)',opacity:isDecl(m)?0.6:1}}>
             <div onClick={()=>{setSscOpen(open?null:m.id);setSscNote('');setSscEdit(null);}} style={{display:'flex',alignItems:'center',padding:'12px 12px',cursor:'pointer',gap:8}}>
               <div style={{flex:1,minWidth:0}}>
                 <div style={{fontWeight:700,fontSize:13,color:C.choc,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{open?'▾ ':'▸ '}{m.doctor||m.office||'Unnamed'}</div>
