@@ -1125,9 +1125,9 @@ You guide Nikki through her day: suggest routes, capture visit notes, generate p
   const stamp=new Date().toLocaleDateString('en-US',{month:'short',day:'numeric',timeZone:'America/Chicago'});
   const SEM=[{k:'sep17',d:'Sep 17',c:'Hyg'},{k:'oct8',d:'Oct 8',c:'SSC'},{k:'nov11',d:'Nov 11',c:'SSC'},{k:'feb18',d:'Feb 18',c:'SSC'},{k:'mar25',d:'Mar 25',c:'SSC'},{k:'apr20',d:'Apr 20',c:'Hyg'},{k:'may27',d:'May 27',c:'Hyg'}];
   const isPaid=(m)=>!!m.duesPaid, isConf=(m)=>m.status==='Confirmed', isDecl=(m)=>String(m.status||'').toLowerCase().includes('declin'), isNoAns=(m)=>m.status==='No Answer';
-  const paidN=ssc.filter(isPaid).length, confN=ssc.filter(isConf).length, declN=ssc.filter(isDecl).length, oweN=ssc.filter(m=>!isPaid(m)&&!isDecl(m)).length;
+  const paidN=ssc.filter(isPaid).length, confN=ssc.filter(isConf).length, declN=ssc.filter(isDecl).length, oweN=ssc.filter(m=>!isPaid(m)&&!isDecl(m)).length; const planN=ssc.filter(m=>m.paymentPlan).length;
   const badge=(m)=>{ if(isPaid(m))return{t:'Paid',bg:'rgba(122,150,120,0.22)',c:C.sage}; if(isDecl(m))return{t:'Declined',bg:'rgba(122,96,80,0.12)',c:C.choc3}; if(isNoAns(m))return{t:'No answer',bg:'rgba(196,122,138,0.20)',c:C.rose}; if(isConf(m))return{t:'Confirmed',bg:'rgba(201,169,110,0.22)',c:C.goldDark}; return{t:m.status||'To email',bg:'rgba(122,96,80,0.10)',c:C.choc3}; };
-  const filt=(m)=>{ if(sscFilter==='all')return true; if(sscFilter==='owe')return !isPaid(m)&&!isDecl(m); if(sscFilter==='noans')return isNoAns(m); if(sscFilter==='declined')return isDecl(m); if(sscFilter==='confirmed')return isConf(m)||isPaid(m); return true; };
+  const filt=(m)=>{ if(sscFilter==='all')return true; if(sscFilter==='owe')return !isPaid(m)&&!isDecl(m); if(sscFilter==='noans')return isNoAns(m); if(sscFilter==='declined')return isDecl(m); if(sscFilter==='confirmed')return isConf(m)||isPaid(m); if(sscFilter==='plan')return !!m.paymentPlan; return true; };
   const rows=ssc.filter(filt);
   const summary=(m)=>{ const p=[]; p.push(m.saveDatesSent?('emailed '+fmtD(m.saveDatesSent)):'not emailed'); if(m.confirmCall)p.push('called '+fmtD(m.confirmCall)); if(isConf(m))p.push('confirmed'); if(isDecl(m))p.push('DECLINED'); if(isNoAns(m))p.push('no answer'); p.push(isPaid(m)?('dues PAID'+(m.paymentMethod?' ('+m.paymentMethod+')':'')):'dues unpaid'); const rc=Object.values(m.rsvps||{}).filter(Boolean).length; if(rc)p.push(rc+' seminar RSVPs'); return p.join('  ·  '); };
   const nextStep=(m)=>{ if(isDecl(m))return 'Declined - re-invite next season'; if(!m.saveDatesSent)return 'Send Save-the-Date invite'; if(isNoAns(m))return 'Re-attempt contact (no answer)'; if(!m.confirmCall&&!isConf(m))return 'Call to confirm receipt'; if(!isPaid(m))return m.paymentPlan?'Collect dues (on payment plan)':'Collect dues'; return 'Member set - keep RSVPs current'; };
@@ -1148,7 +1148,7 @@ You guide Nikki through her day: suggest routes, capture visit notes, generate p
     {h:'PAYMENT FOLLOW-UP CALL - Sept 3/4 (unpaid)',b:'Call offices that have not paid. Ask if the doctor would like you to text or email the payment link. Ask for the cell or personal email of the doctor.'},
     {h:'TEXT THE LINK VIA SQUARE',b:'You are set up on Square to text payment links. Log in at App.squareup.com (passcode 2014) and send: https://square.link/u/D2UYUbua'}
   ];
-  const FILTERS=[['all','All'],['owe','Owe dues'],['noans','No answer'],['declined','Declined'],['confirmed','Confirmed']];
+  const FILTERS=[['all','All'],['owe','Owe dues'],['noans','No answer'],['declined','Declined'],['confirmed','Confirmed'],['plan','On plan']];
   return(
     <div>
       <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:10}}>
@@ -1162,7 +1162,7 @@ You guide Nikki through her day: suggest routes, capture visit notes, generate p
         <div style={{...glass({borderRadius:12}),padding:'8px 4px',textAlign:'center'}}><div style={{fontSize:18,fontWeight:800,color:C.hot}}>{oweN}</div><div style={{fontSize:9,fontWeight:600,color:C.choc3}}>OWE DUES</div></div>
       </div>
       <div style={{display:'flex',gap:6,marginBottom:12,flexWrap:'wrap'}}>
-        {FILTERS.map(([k,l])=>(<div key={k} onClick={()=>setSscFilter(k)} style={{fontSize:11,fontWeight:600,padding:'6px 12px',borderRadius:999,cursor:'pointer',border:'1px solid '+(sscFilter===k?C.gold:'rgba(122,96,80,0.25)'),background:sscFilter===k?'rgba(201,169,110,0.18)':'transparent',color:sscFilter===k?C.goldDark:C.choc3}}>{l}</div>))}
+        {FILTERS.map(([k,l])=>(<div key={k} onClick={()=>setSscFilter(k)} style={{fontSize:11,fontWeight:600,padding:'6px 12px',borderRadius:999,cursor:'pointer',border:'1px solid '+(sscFilter===k?C.gold:'rgba(122,96,80,0.25)'),background:sscFilter===k?'rgba(201,169,110,0.18)':'transparent',color:sscFilter===k?C.goldDark:C.choc3}}>{k==='plan'?l+' ('+planN+')':l}</div>))}
       </div>
       <div style={{display:'flex',gap:8,marginBottom:12,flexWrap:'wrap'}}>
         <button style={{...btn.secondary,...btn.sm}} onClick={()=>setSscShowCal(v=>!v)}>{sscShowCal?'Hide Dates':'Season Dates & Details'}</button>
@@ -1188,7 +1188,7 @@ You guide Nikki through her day: suggest routes, capture visit notes, generate p
                 <div style={{fontWeight:700,fontSize:13,color:C.choc,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{open?'▾ ':'▸ '}{m.doctor||m.office||'Unnamed'}</div>
                 <div style={{fontSize:11,fontWeight:500,color:C.choc3,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{m.office}{m.location?' · '+m.location:''}</div>
               </div>
-              <div style={{fontSize:11,fontWeight:700,padding:'4px 10px',borderRadius:999,background:bd.bg,color:bd.c,flexShrink:0}}>{bd.t}</div>
+              <div style={{display:'flex',gap:5,alignItems:'center',flexShrink:0}}>{m.paymentPlan&&<div style={{fontSize:9,fontWeight:700,padding:'3px 7px',borderRadius:999,background:'rgba(155,142,196,0.22)',color:C.lav}}>PLAN</div>}<div style={{fontSize:11,fontWeight:700,padding:'4px 10px',borderRadius:999,background:bd.bg,color:bd.c}}>{bd.t}</div></div>
             </div>
             {open&&(
               <div style={{padding:'0 14px 16px'}}>
@@ -1201,6 +1201,7 @@ You guide Nikki through her day: suggest routes, capture visit notes, generate p
                 <div style={{display:'flex',gap:6,flexWrap:'wrap',marginBottom:12}}>
                   {STATUSES.map(st=>{const on=(st==='Paid'&&isPaid(m))||(st!=='Paid'&&m.status===st);return(<div key={st} onClick={()=>st==='Paid'?updateSsc(m.id,{duesPaid:!isPaid(m)}):setSscStatus(m,st)} style={{fontSize:11,fontWeight:600,padding:'6px 11px',borderRadius:8,cursor:'pointer',border:'1px solid '+(on?C.gold:'rgba(122,96,80,0.25)'),background:on?'rgba(201,169,110,0.2)':'transparent',color:on?C.goldDark:C.choc3}}>{st}</div>);})}
                 </div>
+                <div onClick={()=>updateSsc(m.id,{paymentPlan:!m.paymentPlan})} style={{display:'inline-flex',alignItems:'center',fontSize:11,fontWeight:600,padding:'6px 12px',borderRadius:8,cursor:'pointer',marginBottom:12,border:'1px solid '+(m.paymentPlan?C.lav:'rgba(122,96,80,0.25)'),background:m.paymentPlan?'rgba(155,142,196,0.18)':'transparent',color:m.paymentPlan?C.lav:C.choc3}}>{m.paymentPlan?'✓ Payment plan':'Payment plan'}</div>
                 <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:6}}>
                   <div style={{fontSize:9,fontWeight:700,color:C.choc3,letterSpacing:0.5}}>CONTACT</div>
                   {sscEdit!==m.id&&<div onClick={()=>{setSscEdit(m.id);setSscForm({cell:m.cell||'',personalEmail:m.personalEmail||'',officeEmail:m.officeEmail||m.email||'',officePhone:m.officePhone||m.phone||'',frontDeskContact:m.frontDeskContact||''});}} style={{fontSize:11,fontWeight:600,color:C.goldDark,cursor:'pointer'}}>Edit</div>}
