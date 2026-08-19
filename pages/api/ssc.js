@@ -28,7 +28,7 @@ function mapOut(m){
     paymentMethod:m.payment_method||'', paymentPlan:m.payment_plan||false,
     declinedReason:m.declined_reason||'', returningMember:m.returning_member||false,
     officeId:m.office_id||null, frontDeskContact:m.front_desk_contact||'',
-    callAttempts:m.call_attempts||0, rsvps:m.rsvps||{}, patelNote:m.at_a_glance||'',
+    callAttempts:m.call_attempts||0, rsvps:m.rsvps||{}, patelNote:m.patel_note||'',
   };
 }
 function mapIn(d){
@@ -58,7 +58,7 @@ function mapIn(d){
   if(d.frontDeskContact!==undefined)m.front_desk_contact=d.frontDeskContact;
   if(d.callAttempts!==undefined)m.call_attempts=d.callAttempts;
   if(d.rsvps!==undefined)m.rsvps=d.rsvps;
-  if(d.patelNote!==undefined)m.at_a_glance=d.patelNote;
+  if(d.patelNote!==undefined)m.patel_note=d.patelNote;
   return m;
 }
 
